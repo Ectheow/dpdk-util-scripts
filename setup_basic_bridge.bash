@@ -23,7 +23,7 @@ function has_grub_hugepage_entry {
 function install_packages {
 	apt-cache show openvswitch-switch-dpdk &>/dev/null
 	if [ $? ]; then
-		apt-get install --assume-yes -q openvswitch-switch-dpdk || error "Couldn't install openvswitch-switch-dpdk"
+		apt-get install --force-yes --assume-yes -q openvswitch-switch-dpdk || error "Couldn't install openvswitch-switch-dpdk"
 	else
 		error "No suck package in cache openvswitch-switch-dpdk"
 	fi
