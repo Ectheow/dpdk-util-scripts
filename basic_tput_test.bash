@@ -31,6 +31,23 @@ function add_veth_link {
 	ip link set up dev $veth_user_side
 }
 
+function usage {
+echo "Usage: "
+echo "$0 --ipaddr ADDR [ --bridgename BRIDGENAME ] [ --veth_root ROOT_NAME ]"
+cat <<_EOF_
+    --ipaddr <ADDR> 
+        Assign ADDR to the user end of the veth interface created.
+    --bridgename <BRIDGENAME>
+        Use BRIDGENAME as the ovs bridge to add a port to.
+    --veth_root <ROOT_NAME>
+        Use ROOT_NAME as a name root for veth interfaces - if you pass in
+        'veth' you get veth0 and veth1.
+    This script creates a veth interface, attaches one side to an ovs bridge,
+    and the other is assigned an IP. If a veth interface already exists with
+    the name (default veth, unless you pass --veth_root), it is deleted.
+_EOF_
+}
+
 veth_addr=""
 bridgename=$BRIDGENAME_DEFAULT
 veth_name_root=$VETH_ROOT_DEFAULT
@@ -53,6 +70,10 @@ while [ $# != 0 ]; do
 			veth_name_root=$1
 			info "using veth interface name root $veth_name_root"
 			shift
+                        ;;
+                --usage|--help)
+                        usage
+                        exit 0
 			;;
 		*)
 			;;
