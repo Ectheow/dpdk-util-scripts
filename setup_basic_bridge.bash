@@ -101,6 +101,23 @@ pci_devs=( )
 nr_dpdk_ports=$NRDPDK_PORTS_DEFAULT
 bridgename=$BRIDGENAME_DEFAULT
 bind_module=$MODULE_DEFAULT
+function usage {
+echo "$0 usage:"
+echo "$0 --pci_devs DEVS [ --nr_dpdk_ports PORTS ] [ --bridgename BRIDGENAME ]"
+cat <<_EOF_
+    --pci_devs <DEVS>
+        Whitespace separated list of pci device addresses to add to the dpdk interfaces file
+        $DPDK_IFACES. 
+    --nr_dpdk_ports <PORTS>
+        Number of ports to pass in the DPDK_OPTS variable in $OPENVSWITCH_CONFIG
+    --bridgename <BRIDGENAME>
+        Name of bridge to create that has the dpdk ports
+This program edits the following configuration files:
+    $GRUBFILE : Adds (if necessary) hugepages entry
+    $OPENVSWITCH_CONFIG : Adds a line to cause openvswitch to pass dpdk options to ovs-vswitchd
+    $DPDK_IFACES : Adds PCI interfaces to bind to a pci passthrough device.
+_EOF_
+}
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--pci_devs)
@@ -123,6 +140,11 @@ while [ $# -gt 0 ]; do
 		bridgename=$1
 		info "set bridgename to $1"
 		shift
+		;;
+        --usage|--help)
+		shift
+		usage
+		exit 0
 		;;
 	*)
 		error "Unknown argument: $1"
