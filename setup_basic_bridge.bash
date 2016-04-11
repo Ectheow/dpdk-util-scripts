@@ -7,6 +7,7 @@ OPENVSWITCH_CONFIG="/etc/default/openvswitch-switch"
 MODULE_DEFAULT="uio_pci_generic"
 BRIDGENAME_DEFAULT="br0"
 NRDPDK_PORTS_DEFAULT=2
+COREMASK_DEFAULT="0x3"
 HUGEPAGES_LINE="default_hugepagesz=1GB hugepagesz=1G hugepages=5"
 
 source ./logging.bash
@@ -88,7 +89,7 @@ function check_for_module {
 }
 
 function edit_ovs_config {
-        local dpdk_line="export DPDK_OPTS=\"--dpdk -c 0x3 -n ${#pci_devs[@]}\"" 
+        local dpdk_line="export DPDK_OPTS=\"--dpdk -c $coremask -n $nr_dpdk_ports\"" 
 
         if grep "$dpdk_line" $OPENVSWITCH_CONFIG &>/dev/null; then
 		info "openvswitch-switch already has DPDK_OPTS, skipping..."
@@ -101,17 +102,21 @@ pci_devs=( )
 nr_dpdk_ports=$NRDPDK_PORTS_DEFAULT
 bridgename=$BRIDGENAME_DEFAULT
 bind_module=$MODULE_DEFAULT
+coremask=$COREMASK_DEFAULT
+
 function usage {
 echo "$0 usage:"
-echo "$0 --pci_devs DEVS [ --nr_dpdk_ports PORTS ] [ --bridgename BRIDGENAME ]"
+echo "$0 --pci-devs DEVS [ --nr-dpdk-ports PORTS ] [ --bridgename BRIDGENAME ] [ --dpdk-coremask COREMASK ]"
 cat <<_EOF_
-    --pci_devs <DEVS>
+    --pci-devs <DEVS>
         Whitespace separated list of pci device addresses to add to the dpdk interfaces file
         $DPDK_IFACES. 
-    --nr_dpdk_ports <PORTS>
+    --nr-dpdk-ports <PORTS>
         Number of ports to pass in the DPDK_OPTS variable in $OPENVSWITCH_CONFIG
     --bridgename <BRIDGENAME>
         Name of bridge to create that has the dpdk ports
+    --dpdk-coremask <COREMASK>
+        coremask to pass to DPDK in DPDK_OPTS in $OPENVSWITCH_CONFIG
 This program edits the following configuration files:
     $GRUBFILE : Adds (if necessary) hugepages entry
     $OPENVSWITCH_CONFIG : Adds a line to cause openvswitch to pass dpdk options to ovs-vswitchd
@@ -120,25 +125,31 @@ _EOF_
 }
 while [ $# -gt 0 ]; do
 	case "$1" in
-	--pci_devs)
+	--pci-devs)
 		# device IDs 
 		shift
 		while echo $1 | egrep '^[^\-]+' &>/dev/null; do
 			pci_devs=(${pci_devs[@]} $1)
-			info "added PCI device $1"
+			info "cmdline: added PCI device $1"
 			shift
 		done
 		;;
-	--nr_dpdk_ports)
+	--nr-dpdk-ports)
 		shift
 		nr_dpdk_ports=$1
-		info "Set nr DPDK ports to $1"
+		info "cmdline: Set nr DPDK ports to $1"
 		shift
 		;;
+        --dpdk-coremask)
+                shift
+                coremask=$1
+                info "cmdline: Set coremask to $1"
+                shift
+                ;;
 	--bridgename)
 		shift
 		bridgename=$1
-		info "set bridgename to $1"
+		info "cmdline: set bridgename to $1"
 		shift
 		;;
         --usage|--help)
