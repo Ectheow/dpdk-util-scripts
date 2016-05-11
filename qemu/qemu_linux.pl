@@ -119,7 +119,7 @@ sub create_qemu_command {
         imgloc=>undef,
         memory_gb=>undef,
         use_hugepage_backend=>undef,
-        vhost_user_port=>undef,
+        vhost_user_sock=>undef,
         @_,
     );
 
@@ -139,9 +139,9 @@ sub create_qemu_command {
     $cmdline .= "-drive file=$args{imgloc} " if defined $args{imgloc};
 
     $cmdline .=
-    "-chardev socket,id=char1,path=/var/run/openvswitch/$args{vhostuser_port} "
+    "-chardev socket,id=char1,path=/var/run/openvswitch/$args{vhostuser_sock} "
     . "-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce "
-    . "-device virtio-net-pci,mac=00:00:00:00:00:01,netdev=mynet1 " if $args{vhostuser_port};
+    . "-device virtio-net-pci,mac=00:00:00:00:00:01,netdev=mynet1 " if $args{vhostuser_sock};
 
     $cmdline .=
     "-object memory-backend-file,id=mem,size=" . $mem_gb . ",mem-path=/dev/hugepages,share=on " 
