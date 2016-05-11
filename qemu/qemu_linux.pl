@@ -12,6 +12,7 @@ my $use_vnc = "no";
 my $background = 0;
 my $imgloc = undef;
 my $isoloc = undef;
+my $vhostuser_port = "vhost-user-1";     
 
 while ((my $var = shift @ARGV)) {
     if ($var eq "--mem-gb") {
@@ -26,6 +27,8 @@ while ((my $var = shift @ARGV)) {
         $imgloc = shift @ARGV;
     } elsif($var eq "--isoloc") {
         $isoloc = shift @ARGV;
+    } elsif($var eq "--vhostuser-sock") {
+        $vhostuser_port = shift @ARGV;
     } else {
         usage_and_exit();
     }
@@ -43,7 +46,7 @@ my $cmdline = "sudo kvm "
 $cmdline .= "-cdrom $isoloc " if defined $isoloc;
 $cmdline .= "-drive file=$imgloc " if defined $imgloc;
 $cmdline .=
-"-chardev socket,id=char1,path=/var/run/openvswitch/vhost-user-1 "
+"-chardev socket,id=char1,path=/var/run/openvswitch/$vhostuser_port "
 . "-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce "
 . "-device virtio-net-pci,mac=00:00:00:00:00:01,netdev=mynet1 "
 . "-object memory-backend-file,id=mem,size=" . $mem_gb . ",mem-path=/dev/hugepages,share=on "
@@ -142,7 +145,7 @@ sub process_exec {
 sub usage_and_exit {
     print<<"_EOF_";
 $0 usage:
-$0 [--use-vnc (yes | no )] [ --vnc-port <portno> ] [ --mem-gb <size> ] [ --imgloc <image-file-location> ] [ --isoloc <iso-file-location> ]
+$0 [--use-vnc (yes | no )] [ --vnc-port <portno> ] [ --mem-gb <size> ] [ --imgloc <image-file-location> ] [ --isoloc <iso-file-location> ]  [ --vhostuser-sock <portname> ]
 _EOF_
     exit 0;
 }
