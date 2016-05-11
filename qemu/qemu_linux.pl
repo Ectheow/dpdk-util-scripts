@@ -10,6 +10,9 @@ my $vnc_port = 5;
 my $memory_gb =  4;
 my $use_vnc = "no";
 my $background = 0;
+my $imgloc = undef;
+my $isoloc = undef;
+
 while ((my $var = shift @ARGV)) {
     if ($var eq "--mem-gb") {
         $memory_gb = shift @ARGV;
@@ -19,30 +22,52 @@ while ((my $var = shift @ARGV)) {
         $vnc_port = shift @ARGV;
     } elsif($var eq "--background") {
         $background = 1;
+    } elsif($var eq "--imgloc") {
+        $imgloc = shift @ARGV;
+    } elsif($var eq "--isoloc") {
+        $isoloc = shift @ARGV;
     } else {
         usage_and_exit();
     }
 }
 
+die "I need an img/iso location" if not (defined $imgloc or defined $isoloc);
 my $mem_mb = $memory_gb * 1024;
 my $mem_gb = $memory_gb . "G";
-my $cmdline =<<"_EOF_";
-sudo kvm
--boot order=cd
--cpu host
--vnc :$vnc_port
--m $mem_mb
--name 'hlinux qemu'
--cdrom hlinux-iso.iso
--drive file=hlinux.img
--chardev socket,id=char1,path=/var/run/openvswitch/vhost-user-1 
--netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce 
--device virtio-net-pci,mac=00:00:00:00:00:01,netdev=mynet1 
--object memory-backend-file,id=mem,size=$mem_gb,mem-path=/dev/hugepages,share=on 
--numa node,memdev=mem -mem-prealloc 
--netdev tap,id=mynet2 
--device virtio-net-pci,netdev=mynet2
-_EOF_
+my $cmdline = "sudo kvm "
+. "-boot order=cd "
+. "-cpu host "
+. "-vnc :$vnc_port "
+. "-m " . $memory_gb * 1024 ." "
+. "-name  'hlinux qemu' ";
+$cmdline .= "-cdrom $isoloc " if defined $isoloc;
+$cmdline .= "-drive file=$imgloc " if defined $imgloc;
+$cmdline .=
+"-chardev socket,id=char1,path=/var/run/openvswitch/vhost-user-1 "
+. "-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce "
+. "-device virtio-net-pci,mac=00:00:00:00:00:01,netdev=mynet1 "
+. "-object memory-backend-file,id=mem,size=" . $mem_gb . ",mem-path=/dev/hugepages,share=on "
+. "-numa node,memdev=mem -mem-prealloc "
+. "-netdev tap,id=mynet2 "
+. "-device virtio-net-pci,netdev=mynet2 ";
+
+#my $cmdline =<<"_EOF_";
+#sudo kvm
+#-boot order=cd
+#-cpu host
+#-vnc :$vnc_port
+#-m $mem_mb
+#-name 'hlinux qemu'
+#-cdrom hlinux-iso.iso
+#-drive file=hlinux.img
+#-chardev socket,id=char1,path=/var/run/openvswitch/vhost-user-1 
+#-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce 
+#-device virtio-net-pci,mac=00:00:00:00:00:01,netdev=mynet1 
+#-object memory-backend-file,id=mem,size=$mem_gb,mem-path=/dev/hugepages,share=on 
+#-numa node,memdev=mem -mem-prealloc 
+#-netdev tap,id=mynet2 
+#-device virtio-net-pci,netdev=mynet2
+#_EOF_
 
 my $vnc =<<"_EOF_";
 vncviewer 'localhost::590$vnc_port'
@@ -77,6 +102,17 @@ my @ready=();
 $s->add($q_stdout, $q_stderr, $vnc_stdout, $vnc_stderr);
 for (; ; ) {
     my $pid = waitpid(-1, WNOHANG);
+
+    @ready = $s->can_read(0);
+    for my $fh (@ready) {
+        if ($background) {
+            # Throw away output if backgrounded.
+            <$fh>;
+        } else {
+            print <$fh>;
+        }
+    }
+
     if ($pid > 0) {
         say "**A child ($pid) exited code $?**";
         if (scalar(@{$pids{$pid}}) > 0)  {
@@ -87,16 +123,6 @@ for (; ; ) {
             }
         } else {
             say "But I'm not polling that!";
-        }
-    }
-
-    @ready = $s->can_read(0);
-    for my $fh (@ready) {
-        if ($background) {
-            # Throw away output if backgrounded.
-            <$fh>;
-        } else {
-            print <$fh>;
         }
     }
 }
@@ -116,7 +142,7 @@ sub process_exec {
 sub usage_and_exit {
     print<<"_EOF_";
 $0 usage:
-$0 [--use-vnc (yes | no )] [ --vnc-port (yes | no) ] [ --mem-gb <size> ]
+$0 [--use-vnc (yes | no )] [ --vnc-port <portno> ] [ --mem-gb <size> ] [ --imgloc <image-file-location> ] [ --isoloc <iso-file-location> ]
 _EOF_
     exit 0;
 }
