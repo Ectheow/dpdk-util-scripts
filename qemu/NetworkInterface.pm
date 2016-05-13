@@ -1,8 +1,7 @@
-package Testing::NetworkInterface;
-use Testing::NetworkUtils qw(address_comare_noroute);
+package NetworkInterface;
+use NetworkUtils qw(address_comare_noroute);
 use strict;
 use warnings;
-use Moose;
 use JSON;
 use v5.20;
 use Data::Dumper;
@@ -12,6 +11,39 @@ our $LINK_DOWN = 0;
 our $LINK_UP = 0x01;
 our $LINK_NO_CARRIER = 0x02;
 our $LINK_POINT_TO_POINT = 0x04;
+
+use constant (
+    IFF_UP => 0x1,
+    IFF_BROADCAST => 0x2,
+    IFF_DEBUG => 0x4,
+    IFF_LOOPBACK => 0x8,
+    IFF_POINTOPOINT => 0x10,
+    IFF_NOTRAILERS => 0x20,	
+    IFF_RUNNING => 0x40,		
+    IFF_NOARP => 0x80,		
+    IFF_PROMISC => 0x100,	
+    IFF_ALLMULTI => 0x200,	
+    IFF_MASTER => 0x400,		
+    IFF_SLAVE => 0x800,		
+    IFF_MULTICAST => 0x1000,	
+    IFF_PORTSEL => 0x2000,	
+    IFF_AUTOMEDIA => 0x4000,	
+    IFF_DYNAMIC => 0x8000,
+);
+
+
+
+sub new {
+    my $class = shift;
+    my %args =(
+        name=>undef,
+        @_,
+    );
+
+    my $data = {iface_name=>$args{name}};
+
+    return bless $data, $class;
+}
 
 sub set_iface_name($$) {
     my ($self, $iface_name) = @_;
@@ -35,7 +67,12 @@ sub get_iface_name($) {
 }
 # add_ip: self, string: add a new IP address to interface
 sub add_ip($$) {
-    die "Not implemented";
+    my ($self, $ip) = @_;
+
+    system("ip addr add $ip dev $self->{iface_name}") == 0 or do {
+        croak "Can't add IP address $ip to $self->{iface_name}";
+    };
+    return 1;
 }
 
 # get_ips: self: return a list of IPs on interface
@@ -66,7 +103,7 @@ sub clear_ips($$) {
     my $extant_ips = $self->get_ips();
     my $count = 0;
     foreach my $ip (@{$ips}) {
-        my @found_ips = grep( (Testing::NetworkUtils::address_compare_noroute($ip, $_)), @{$extant_ips});
+        my @found_ips = grep( (NetworkUtils::address_compare_noroute($ip, $_)), @{$extant_ips});
         if(not scalar @found_ips) {
             carp "You gave me an IP that didn't exist for $self->{iface_name}: $ip";
             next;
@@ -146,7 +183,7 @@ sub get_mac($) {
 
 sub set_mac {
     my ($self, $mac) = @_;
-    if (not Testing::NetworkUtils::is_valid_mac($mac)) {
+    if (not NetworkUtils::is_valid_mac($mac)) {
         carp "You gave me a bad mac!";
         return undef;
     }
@@ -155,7 +192,4 @@ sub set_mac {
 }
 
 
-
-no Moose;
-__PACKAGE__->meta->make_immutable;
 1;

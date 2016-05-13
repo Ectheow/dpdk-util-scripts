@@ -1,4 +1,4 @@
-package Testing::NetworkUtils;
+package NetworkUtils;
 use warnings;
 use strict;
 use Getopt::Long;
