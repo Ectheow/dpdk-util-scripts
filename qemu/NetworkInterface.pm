@@ -6,13 +6,8 @@ use JSON;
 use v5.20;
 use Data::Dumper;
 use Carp;
-
-our $LINK_DOWN = 0;
-our $LINK_UP = 0x01;
-our $LINK_NO_CARRIER = 0x02;
-our $LINK_POINT_TO_POINT = 0x04;
-
-use constant (
+require Exporter;
+use constant {
     IFF_UP => 0x1,
     IFF_BROADCAST => 0x2,
     IFF_DEBUG => 0x4,
@@ -29,9 +24,19 @@ use constant (
     IFF_PORTSEL => 0x2000,	
     IFF_AUTOMEDIA => 0x4000,	
     IFF_DYNAMIC => 0x8000,
+};
+
+our @ISA=qw(Exporter);
+our @EXPORT = qw(
+IFF_UP
+IFF_BROADCAST
+IFF_LOOPBACK
+IFF_NOARP
+IFF_MASTER
+IFF_PROMISC
 );
 
-
+my $LINK_POINT_TO_POINT="POINT-TO-POINT";
 
 sub new {
     my $class = shift;
@@ -57,8 +62,7 @@ sub set_iface_name($$) {
 }
 
 sub name($) {
-    my $self = shift;
-    return $self->{iface_name};
+    return $_[0]->{iface_name};
 }
 
 sub get_iface_name($) {
@@ -116,40 +120,23 @@ sub clear_ips($$) {
 }
 
 sub set_linkstate($$) {
-    my ($self, $linkstate) = @_;
-    my $ret;
-    if ($linkstate == $LINK_UP) {
-        if (system("ip link set up dev $self->{iface_name}") != 0) { 
-            carp "Couldn't do an ip link set up on $self->{iface_name}";
-        }
-    } elsif($linkstate == $LINK_DOWN) {
-        if (system("ip link set down dev $self->{iface_name}") != 0) { 
-            carp "Couldn't do an ip link set down on $self->{iface_name}";
-        }
-    } else {
-        carp "You're trying to make me set a bogus link state: $linkstate";
-    }
+    my ($self, $flags_to_set) = @_;
+    open FLAGS, ">", "/sys/class/net/$self->{iface_name}/flags" or croak "Can't open flags for writing";
+    #printf "0x%x\n", $flags_to_set;
+    printf FLAGS "0x%x\n", $flags_to_set; 
+    close FLAGS;
     return $self->get_linkstate;
 }
 
 sub get_linkstate {
     my ($self) = @_;
-    my $line = `ip --oneline link show dev $self->{iface_name}`;
-    my $flags=$LINK_DOWN;
-    if ($line =~ $self->_make_link_regex) {
-        foreach my $flag (split ",", $1) {
-            if ($flag eq "UP") {
-                $flags |= $LINK_UP;
-            } elsif($flag eq "NO-CARRIER") {
-                $flags |= $LINK_NO_CARRIER;
-            } elsif($flag eq "POINTTOPOINT") {
-                $flags |= $LINK_POINT_TO_POINT;
-            }
-        }
-    } else {
-        carp "Something is wrong with the line regex: $line";
-    }
-    return $flags;
+    my $flags = do {
+        local $/=undef;
+        open my $flags_file, "<", "/sys/class/net/". $self->{iface_name}. "/flags";
+        <$flags_file>;
+    };
+    chomp $flags;
+    return hex $flags;
 }
 
 sub _make_link_regex($) {
@@ -171,6 +158,7 @@ sub get_mac($) {
     if ($self->get_linkstate() & $LINK_POINT_TO_POINT) {
         return undef;
     } 
+
     my $line = `ip --oneline link show dev $self->{iface_name}`;
 
     if($line =~ $self->_make_link_regex) {

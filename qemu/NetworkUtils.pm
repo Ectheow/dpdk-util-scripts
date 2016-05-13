@@ -263,6 +263,11 @@ sub iterate_ifaces($) {
     }
 }
 
+sub address_strip_cidr {
+    my ($addr) = @_;
+
+    return $addr =~ s/\/.*$//rg;
+}
 # addresses_compare_noroute: address, address -> true or false
 # Compares addresses without the subnet postfix.
 sub address_compare_noroute($$) {
@@ -321,7 +326,6 @@ sub find_iface($) {
     iterate_ifaces($parse_iface);
 
     return $isdone;
-
 }
 
 
