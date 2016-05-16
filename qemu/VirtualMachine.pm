@@ -98,7 +98,7 @@ sub create_qemu_command {
 
     $cmdline .=
     "-chardev socket,id=char1,path=/var/run/openvswitch/$args{vhostuser_sock} "
-    . "-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce,mac=$args{mac} "
+    . "-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce,mac=$args{test_dev_mac} "
     . "-device virtio-net-pci,mac=" if $args{vhostuser_sock};
 
     $cmdline .=
