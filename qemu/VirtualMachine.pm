@@ -109,7 +109,7 @@ sub create_qemu_command {
     . "-net bridge,name=mgmtnet"
     . ",br=" .$args{mgmt_attach_to_bridge}->name() if defined $args{mgmt_attach_to_bridge};
     $cmdline .= " "
-    . "-net nic,model=virtio";
+    . "-net nic,model=virtio"; if defined $args{mgmt_attach_to_bridge};
 
     $cmdline =~ tr/\n/ /;
     return $cmdline;
