@@ -99,7 +99,7 @@ sub create_qemu_command {
     $cmdline .=
         "-chardev socket,id=char1,path=/var/run/openvswitch/$args{vhostuser_sock} "
     . "-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce "
-    . "-device virtio-net-pci,mac=$args{test_dev_mac}" if $args{vhostuser_sock};
+    . "-device virtio-net-pci,mac=$args{test_dev_mac}netdev=mynet1" if $args{vhostuser_sock};
 
     $cmdline .=
     " -object memory-backend-file,id=mem,size=" . $mem_gb . ",mem-path=/dev/hugepages,share=on " 
@@ -108,8 +108,9 @@ sub create_qemu_command {
     $cmdline .= " "
     . "-net bridge,name=mgmtnet"
     . ",br=" .$args{mgmt_attach_to_bridge}->name() if defined $args{mgmt_attach_to_bridge};
+
     $cmdline .= " "
-    . "-net nic,model=virtio" if defined $args{mgmt_attach_to_bridge};
+    . " -net nic,model=virtio" if defined $args{mgmt_attach_to_bridge};
 
     $cmdline =~ tr/\n/ /;
     return $cmdline;
