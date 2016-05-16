@@ -98,8 +98,8 @@ sub create_qemu_command {
 
     $cmdline .=
     "-chardev socket,id=char1,path=/var/run/openvswitch/$args{vhostuser_sock} "
-    . "-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce "
-    . "-device virtio-net-pci,mac=". $args{mac} . " " if $args{vhostuser_sock};
+    . "-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce,mac=$args{mac} "
+    . "-device virtio-net-pci,mac=" if $args{vhostuser_sock};
 
     $cmdline .=
     " -object memory-backend-file,id=mem,size=" . $mem_gb . ",mem-path=/dev/hugepages,share=on " 
