@@ -6,6 +6,7 @@ use warnings;
 use v5.20;
 use Carp;
 use VirtualMachine;
+use LinuxBridge;
 use ProcessTools;
 use Vnc;
 use IPC::Open3;
@@ -30,6 +31,7 @@ my %args = (
     bridge_to_attach_tap => undef, # name of bridge to create (if it doesn't exist) and attach a TAP to.
     veth_addr=>undef,              # address to assign to a veth interface.
     use_hugepage_backend => 0,     # use hugepages object for memory backend?
+    mgmt_attach_to_bridge=>undef,
     );   
 
 while((my $var = shift @ARGV)) {
@@ -54,6 +56,12 @@ while((my $var = shift @ARGV)) {
 }
 
 
+my $bridge = undef;
+if (defined $args{mgmt_attach_to_bridge}) {
+    $bridge = LinuxBridge->new(name=>$args{mgmt_attach_to_bridge});
+    $args{mgmt_attach_to_bridge} = $bridge;
+}
+
 my $qemu = VirtualMachine->new(%args);
 $qemu->fork_vm() or croak "Can't fork qemu VM";
 if ($args{use_vnc}) {
@@ -74,5 +82,9 @@ if ($args{background}) {
     open STDERR, ">&STDOUT";
 }
 
+
+if (defined $bridge) {
+    $bridge->up_all;
+}
 
 ProcessTools::loop_waitpid();

@@ -4,6 +4,9 @@ use warnings;
 use v5.20;
 use Carp;
 use ProcessTools;
+use Fcntl qw(:DEFAULT SEEK_SET SEEK_CUR);
+use File::Temp qw(:POSIX);
+use File::Copy;
 require Exporter;
 
 our @ISA=qw(Exporter);
@@ -20,12 +23,45 @@ sub new {
             isoloc => undef,               # location of ISO file to insert into CD drive.
             vhostuser_sock => undef,       # name of vhostuser file in /var/run/openvswitch (socket)
             use_hugepage_backend => 0,     # use hugepages object for memory backend?
+            test_dev_mac => "00:00:00:00:00:01",    # mac of test (vhostuser) device
+            mgmt_attach_to_bridge=>undef,       # bridge to attach management interface to.
             @_,
             );   
 
     my $data = { args=>\%args};
 
     return bless $data, $class;
+}
+
+sub append_bridge_to_qemu_acl {
+    my $bridgename = shift;
+
+    open (QEMU_ACL, ">>", "/etc/qemu/bridge.conf");
+    say QEMU_ACL "allow $bridgename";
+}
+
+sub delete_bridge_from_qemu_acl {
+    my $bridgename = shift;
+    
+    say "Deleting $bridgename from ACL";
+    my $fname = tmpnam();
+    say "Writing to $fname";
+    open(QEMU_ACL, "<", "/etc/qemu/bridge.conf");
+    open(TMP_FILE, "+>", $fname);
+
+    while(<QEMU_ACL>) {
+        next if /$bridgename/;
+        print TMP_FILE $_;
+    }
+
+    close QEMU_ACL;
+    open(QEMU_ACL, ">", "/etc/qemu/bridge.conf");
+    seek TMP_FILE, 0, SEEK_SET;
+
+    while(<TMP_FILE>) { print QEMU_ACL $_; };
+
+    close TMP_FILE;
+    close QEMU_ACL;
 }
 
 sub create_qemu_command {
@@ -50,22 +86,24 @@ sub create_qemu_command {
     . "-cpu host "
     . "-vnc :$args{vnc_port} "
     . "-m " . $mem_mb ." "
-    . "-name  'hlinux qemu' ";
+    . "-name 'hlinux qemu' ";
     $cmdline .= "-cdrom $args{isoloc} " if defined $args{isoloc};
     $cmdline .= "-drive file=$args{imgloc} " if defined $args{imgloc};
 
     $cmdline .=
     "-chardev socket,id=char1,path=/var/run/openvswitch/$args{vhostuser_sock} "
     . "-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce "
-    . "-device virtio-net-pci,mac=00:00:00:00:00:01,netdev=mynet1 " if $args{vhostuser_sock};
+    . "-device virtio-net-pci,mac=". $args{mac} . " " if $args{vhostuser_sock};
 
     $cmdline .=
-    "-object memory-backend-file,id=mem,size=" . $mem_gb . ",mem-path=/dev/hugepages,share=on " 
+    " -object memory-backend-file,id=mem,size=" . $mem_gb . ",mem-path=/dev/hugepages,share=on " 
     . "-numa node,memdev=mem -mem-prealloc " if $args{use_hugepage_backend};
 
-    $cmdline .=
-    "-netdev tap,id=mynet2 "
-    . "-device virtio-net-pci,netdev=mynet2 ";
+    $cmdline .= " "
+    . "-net bridge,name=mgmtnet"
+    . ",br=" .$args{mgmt_attach_to_bridge}->name() if defined $args{mgmt_attach_to_bridge};
+    $cmdline .= " "
+    . "-net nic,model=virtio";
 
     $cmdline =~ tr/\n/ /;
     return $cmdline;
@@ -75,9 +113,19 @@ sub fork_vm {
     my $self = shift;
     my %args = ( @_);
 
+    append_bridge_to_qemu_acl($self->{args}{mgmt_attach_to_bridge}->name()) if do {
+        defined $self->{args}{mgmt_attach_to_bridge};
+    };
     my $cmd = create_qemu_command(%{$self->{args}});
     say "Launching: $cmd";
     return ProcessTools::process_exec($cmd);
+}
+
+sub DESTROY {
+    my $self = shift;
+    delete_bridge_from_qemu_acl($self->{args}{mgmt_attach_to_bridge}->name()) if do {
+        defined $self->{args}{mgmt_attach_to_bridge};
+    };
 }
 
 1;

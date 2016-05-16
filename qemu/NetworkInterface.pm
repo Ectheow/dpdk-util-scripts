@@ -119,6 +119,32 @@ sub clear_ips($$) {
     return $count;
 }
 
+sub up {
+    my $self = shift;
+
+    my $flags = $self->get_linkstate;
+
+    if ($flags & IFF_UP) {
+        return 1;
+    } else {
+        $self->set_linkstate($flags | IFF_UP);
+        return 1; 
+    }
+
+}
+
+sub down {
+    my $self = shift;
+
+    my $flags = $self->get_linkstate;
+
+    if (!($flags & IFF_UP)) {
+        return 1;
+    } else {
+        $self->set_linkstate($flags ^ IFF_UP);
+        return 1;
+    }
+}
 sub set_linkstate($$) {
     my ($self, $flags_to_set) = @_;
     open FLAGS, ">", "/sys/class/net/$self->{iface_name}/flags" or croak "Can't open flags for writing";

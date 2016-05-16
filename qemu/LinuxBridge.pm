@@ -24,7 +24,16 @@ sub new {
 }
 
 sub up_all {
+    my $self = shift;
 
+    $self->{bridge_interface}->up;
+    foreach my $iface (@{$self->{interfaces}}) {
+        $iface->up;
+    }
+}
+
+sub name {
+    return $_[0]->{name};
 }
 
 sub interface_list {
@@ -43,14 +52,33 @@ sub add_interface {
 }
 
 sub del_interface {
+    my ($self, $iface) = @_; 
 
+
+    my ($index) = grep { $self->{interfaces}->[$_]->name eq $iface } 0..$#{$self->{interfaces}};
+
+    if (defined $index) {
+        splice(@{$self->{interfaces}}, $index, 1);
+        system("brctl delif $self->{name} $iface");
+    } else {
+        carp "Attempt to delete $iface which has no index";
+    }
+
+    return defined $index;
 }
 
 sub DESTROY {
-    my $self = (@_);
+    my $self = shift;
 
-    my $bridgeif = $self->{bridge_interface}->name();
-    system("brctl delbr $bridgeif") or croak "Can't delete $bridgeif bridge";
+    my $bridgeif = $self->{name};
+    for my $interface (@{$self->{interfaces}}) {
+        $self->del_interface($interface->name);
+        $interface->down;
+    }
+
+    $self->{bridge_interface}->down;
+
+    system("brctl delbr $bridgeif") == 0 or croak "Can't delete $bridgeif bridge";
 }
 
 1;

@@ -34,7 +34,13 @@ foreach my $ip (map { NetworkUtils::address_strip_cidr $_; } @ips) {
 $netif0->set_linkstate( $netif0->get_linkstate()^IFF_UP);
 ok((($netif0->get_linkstate() & IFF_UP) == 0), "Check linkstate after downing");
 
+$netif1->up;
+ok((($netif1->get_linkstate() & IFF_UP)), "Linkstate for netif1 is up");
+$netif1->down;
+ok((($netif1->get_linkstate() & IFF_UP) == 0), "Linkstate for netif1 is down");
+
 done_testing();
+
 END {
     system("ip link del $veth_names[0]") == 0 or do {
         croak "Can't delete ip link for $veth_names[0]";
