@@ -31,6 +31,7 @@ my %args = (
     bridge_to_attach_tap => undef, # name of bridge to create (if it doesn't exist) and attach a TAP to.
     veth_addr=>undef,              # address to assign to a veth interface.
     use_hugepage_backend => 0,     # use hugepages object for memory backend?
+    test_dev_mac => undef,
     mgmt_attach_to_bridge=>undef,
     );   
 
@@ -61,6 +62,7 @@ if (defined $args{mgmt_attach_to_bridge}) {
     $bridge = LinuxBridge->new(name=>$args{mgmt_attach_to_bridge});
     $args{mgmt_attach_to_bridge} = $bridge;
 }
+
 
 my $qemu = VirtualMachine->new(%args);
 $qemu->fork_vm() or croak "Can't fork qemu VM";

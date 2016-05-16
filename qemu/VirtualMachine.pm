@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use v5.20;
 use Carp;
+use NetworkUtils;
 use ProcessTools;
 use Fcntl qw(:DEFAULT SEEK_SET SEEK_CUR);
 use File::Temp qw(:POSIX);
@@ -28,6 +29,11 @@ sub new {
             @_,
             );   
 
+    if (defined $args{test_dev_mac}) {
+        if (not NetworkUtils::is_valid_mac($args{test_dev_mac})) {
+            croak "bad MAC : $args{test_dev_mac}";
+        }
+    }
     my $data = { args=>\%args};
 
     return bless $data, $class;
