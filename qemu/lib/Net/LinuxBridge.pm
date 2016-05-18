@@ -1,4 +1,4 @@
-package LinuxBridge;
+package Net::LinuxBridge;
 use warnings;
 use Carp;
 use Scalar::Util qw(blessed);

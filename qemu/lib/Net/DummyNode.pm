@@ -1,4 +1,4 @@
-package DummyNode;
+package Net::DummyNode;
 use strict;
 use warnings;
 use v5.20;

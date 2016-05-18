@@ -1,4 +1,4 @@
-package NetworkInterface;
+package Net::NetworkInterface;
 use NetworkUtils qw(address_comare_noroute);
 use strict;
 use warnings;

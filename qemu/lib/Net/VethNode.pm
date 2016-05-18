@@ -1,4 +1,4 @@
-package VethNode;
+package Net::VethNode;
 use strict;
 use warnings;
 use v5.20;

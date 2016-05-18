@@ -1,4 +1,4 @@
-package NetworkTopologyVisitor;
+package Net::NetworkTopologyVisitor;
 use strict;
 use warnings;
 use JSON;

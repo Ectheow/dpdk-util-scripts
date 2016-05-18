@@ -1,4 +1,4 @@
-package NetworkUtils;
+package Net::NetworkUtils;
 use warnings;
 use strict;
 use Getopt::Long;
