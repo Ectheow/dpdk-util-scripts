@@ -7,6 +7,7 @@ use v5.20;
 use Carp;
 use VMTools::VirtualMachine;
 use Net::LinuxBridge;
+use Net::VethNode;
 use ProcessTools;
 use VMTools::Vnc;
 use IPC::Open3;
@@ -16,6 +17,17 @@ sub usage_and_exit {
     print<<"_EOF_";
 $0 usage:
 $0 [--use-vnc (yes | no )] [ --vnc-port <portno> ] [ --mem-gb <size> ] [ --imgloc <image-file-location> ] [ --isoloc <iso-file-location> ]  [ --vhostuser-sock <portname> ]
+    --use-vnc ( yes | no )  Spawn VNC process?
+    --memory-gb <size>      Size of memory in GB
+    --imgloc    <path>      path of disk image mounted as c
+    --isoloc    <path>      path of iso image mounted as d
+    --vhostuser-sock <name> name of vhostuser port in /var/run/openvswitch
+    --use-hugepage-backend (yes | no)   use the hugepage backend (give VM backing hugepage store?)
+    --test-dev-mac                      MAC to give to vhostuser port on boot
+    --veth-addr  (ip address)           address to give to veth device on bridge for routing
+    --veth-name-root (string)           name for veths, will be <name-root>0 and <name-root>1
+    --mgmt-attach-to-bridge             bridge to attach TAP interface for manatement to.
+    --background (yes|no)  background process after spawning VNC/qemu.
 _EOF_
     exit 0;
 }
@@ -28,8 +40,8 @@ my %args = (
     imgloc => undef,               # location of harddisk image file.
     isoloc => undef,               # location of ISO file to insert into CD drive.
     vhostuser_sock => undef,       # name of vhostuser file in /var/run/openvswitch (socket)
-    bridge_to_attach_tap => undef, # name of bridge to create (if it doesn't exist) and attach a TAP to.
     veth_addr=>undef,              # address to assign to a veth interface.
+    veth_name_root=>undef,         # root name for veth device(s)
     use_hugepage_backend => 0,     # use hugepages object for memory backend?
     test_dev_mac => undef,
     mgmt_attach_to_bridge=>undef,
@@ -58,11 +70,22 @@ while((my $var = shift @ARGV)) {
 
 
 my $bridge = undef;
+my $veth = undef;
 if (defined $args{mgmt_attach_to_bridge}) {
     $bridge = Net::LinuxBridge->new(name=>$args{mgmt_attach_to_bridge});
     $args{mgmt_attach_to_bridge} = $bridge;
 }
 
+if (defined $args{veth_addr}) {
+    $veth = Net::VethNode->new; 
+    $veth->create(config=>
+        {
+            ips=>[undef, $args{veth_addr}],
+            names=>[$args{veth_name_root}. "0",
+                    $args{veth_name_root}. "1"]});                    
+} elsif (defined $args{veth_name_root}) {
+    croak "Veth name root defined w/o veth-addr";
+}
 
 my $qemu = VMTools::VirtualMachine->new(%args);
 $qemu->fork_vm() or croak "Can't fork qemu VM";
