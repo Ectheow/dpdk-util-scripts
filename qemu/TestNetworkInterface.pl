@@ -39,6 +39,7 @@ ok((($netif1->get_linkstate() & IFF_UP)), "Linkstate for netif1 is up");
 $netif1->down;
 ok((($netif1->get_linkstate() & IFF_UP) == 0), "Linkstate for netif1 is down");
 
+ok((not defined(NetworkInterface->new(name=>"unreasonable-name-000112232"))), "Can't create an interface from NE interface");
 done_testing();
 
 END {

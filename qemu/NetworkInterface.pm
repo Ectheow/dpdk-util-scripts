@@ -47,6 +47,11 @@ sub new {
 
     my $data = {iface_name=>$args{name}};
 
+    if (not (-d "/sys/class/net/$args{name}/")) {
+        carp "Interface doesn't exist";
+        return undef;
+    }
+
     return bless $data, $class;
 }
 
