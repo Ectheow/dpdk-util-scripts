@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use v5.20;
 use Carp;
-useNet::Net::NetworkTopologyVisitor;
+use NetworkTopologyVisitor;
 
 my $bridge_json=<<EOF;
 {

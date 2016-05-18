@@ -2,10 +2,10 @@ use strict;
 use warnings;
 use v5.20;
 use Carp;
-useNet::Net::NetworkTopologyVisitor;
-useNet::Net::NetworkTopologyNode;
-useNet::Net::NetworkInterface;
-useNet::Net::VethNode;
+use NetworkTopologyVisitor;
+use NetworkTopologyNode;
+use NetworkInterface;
+use VethNode;
 use Test::More;
 
 my $veth_name = "myveth";
@@ -18,7 +18,7 @@ my $veth_json=<<EOF;
 }
 EOF
 
-my $visitor =Net::NetworkTopologyVisitor->new();
+my $visitor = NetworkTopologyVisitor->new();
 ok($visitor, "Visitor is not undefined");
 
 my $vethHook = VethNode->new();
@@ -28,10 +28,10 @@ ok($visitor->parse_json(json=>\$veth_json), "Parse JSOn returned 1");
 
 ok(((-d "/sys/class/net/$veth_name". "0") and (-d "/sys/class/net/$veth_name". "1")),
     "Veth nodes both exist");
-my $netif0 =Net::NetworkInterface->new(name=>$veth_name."0");
+my $netif0 = NetworkInterface->new(name=>$veth_name."0");
 ok($netif0, "netif0 exists");
-my $netif1 =Net::NetworkInterface->new(name=>$veth_name."1");
-ok($netif1, Net::Netif1 exists");
+my $netif1 = NetworkInterface->new(name=>$veth_name."1");
+ok($netif1, "Netif1 exists");
 
 is_deeply($netif0->get_ips(), ["192.168.10.2/24"], "IPs are correct");
 is_deeply($netif1->get_ips(), ["192.168.10.3/24"], "IPs are correct");

@@ -1,10 +1,7 @@
 use warnings;
 use strict;
 use v5.20;
-use Dir::Self;
-use File::Spec;
-useNet::Net::LinuxBridge;
-useNet::Net::NetworkInterface;
+use LinuxBridge;
 use Test::More;
 use Carp;
 
@@ -21,7 +18,7 @@ sub get_names_in_bridge {
     return $ifaces;
 }
 my $brname = "br-test";
-my $br =Net::Net::LinuxBridge->new(name=>"br-test") or croak "Can't create bridge";
+my $br = LinuxBridge->new(name=>"br-test") or croak "Can't create bridge";
 
 ok ( (-d "/sys/class/net/$brname/"), "Bridge has been created in sysfs");
 my @dummies = qw[
@@ -30,7 +27,7 @@ dummy1
 dummy2
 ];
 foreach my $dummy (@dummies) {
-    my $dummy_iface =Net::Net::NetworkInterface->new(name=>$dummy);
+    my $dummy_iface = NetworkInterface->new(name=>$dummy);
     croak "Can't create a dummy interface" if not (system("ip link add name $dummy type dummy") == 0);
     ok ($br->add_interface(interface=>$dummy_iface), "Bridge can add interface");
 }
