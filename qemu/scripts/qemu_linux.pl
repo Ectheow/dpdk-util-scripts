@@ -5,10 +5,10 @@ use strict;
 use warnings;
 use v5.20;
 use Carp;
-use VirtualMachine;
-use LinuxBridge;
+use VMTools::VirtualMachine;
+use Net::LinuxBridge;
 use ProcessTools;
-use Vnc;
+use VMTools::Vnc;
 use IPC::Open3;
 use IO::Select;
 
@@ -59,12 +59,12 @@ while((my $var = shift @ARGV)) {
 
 my $bridge = undef;
 if (defined $args{mgmt_attach_to_bridge}) {
-    $bridge = LinuxBridge->new(name=>$args{mgmt_attach_to_bridge});
+    $bridge = Net::LinuxBridge->new(name=>$args{mgmt_attach_to_bridge});
     $args{mgmt_attach_to_bridge} = $bridge;
 }
 
 
-my $qemu = VirtualMachine->new(%args);
+my $qemu = VMTools::VirtualMachine->new(%args);
 $qemu->fork_vm() or croak "Can't fork qemu VM";
 if ($args{use_vnc}) {
     say "Wating for VM to get going to start VNC...";

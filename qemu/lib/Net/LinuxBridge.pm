@@ -3,7 +3,8 @@ use warnings;
 use Carp;
 use Scalar::Util qw(blessed);
 use strict;
-use NetworkInterface;
+use Net::NetworkInterface;
+
 use v5.20;
 =head
 wrapper around the linux bridge
@@ -18,7 +19,7 @@ sub new {
     my $data = {
         name=>$args{name}, 
         interfaces=>[],
-        bridge_interface=>(NetworkInterface->new(name=>$args{name})),
+        bridge_interface=>(Net::NetworkInterface->new(name=>$args{name})),
     };
     return bless $data, $class;
 }
@@ -43,7 +44,7 @@ sub interface_list {
 sub add_interface {
     my ($self, %args) = (shift, @_);
     croak "Undefined interface" if not exists $args{interface};
-    croak "Need an object" if not $args{interface}->isa("NetworkInterface");
+    croak "Need a Net::NetworkInterface object" if not $args{interface}->isa("Net::NetworkInterface");
     push @{$self->{interfaces}}, $args{interface};
     croak "Can't add interface ". $args{interface}->name() if not do {
         system("brctl addif " . $self->{name} . " " . $args{interface}->name()) == 0;

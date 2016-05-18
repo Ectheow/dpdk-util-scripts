@@ -3,9 +3,9 @@ use strict;
 use warnings;
 use v5.20;
 use Carp;
-use NetworkTopologyNode;
+use Net::NetworkTopologyNode;
 use List::MoreUtils qw(pairwise);
-use parent qw(NetworkTopologyNode);
+use parent qw(Net::NetworkTopologyNode);
 
 sub __create {
     my $self = shift;
@@ -32,6 +32,10 @@ sub DESTROY {
     my $self = shift;
 
     my $todel = $self->{names}->[0];
+    if (not defined $todel) {
+        carp "undefined name for veth device.";
+        return;
+    }
     system("ip link del $todel") == 0 or do {
         carp "couldn't delete veth device $todel";
     };

@@ -2,7 +2,8 @@ use warnings;
 use strict;
 use v5.20;
 use Carp;
-use NetworkInterface;
+use Net::NetworkUtils;
+use Net::NetworkInterface;
 use Test::More;
 
 my @veth_names = qw(myveth0 myveth1);
@@ -14,8 +15,8 @@ sub start {
 }
 
 start();
-my $netif0 = NetworkInterface->new(name=>$veth_names[0]);
-my $netif1 = NetworkInterface->new(name=>$veth_names[1]);
+my $netif0 = Net::NetworkInterface->new(name=>$veth_names[0]);
+my $netif1 = Net::NetworkInterface->new(name=>$veth_names[1]);
 foreach my $ip (@ips) {
     $netif0->add_ip($ip);
 }
@@ -26,7 +27,7 @@ $netif0->set_linkstate($netif0->get_linkstate()|IFF_UP);
 ok(($netif0->get_linkstate()& IFF_UP) != 0, "Check linkstate after upping");
 
 print `ip addr`;
-foreach my $ip (map { NetworkUtils::address_strip_cidr $_; } @ips) {
+foreach my $ip (map { Net::NetworkUtils::address_strip_cidr $_; } @ips) {
 
     ok((system("ping -W 1 -c 3 $ip") == 0), "Can ping IP addr");
 }
@@ -39,7 +40,9 @@ ok((($netif1->get_linkstate() & IFF_UP)), "Linkstate for netif1 is up");
 $netif1->down;
 ok((($netif1->get_linkstate() & IFF_UP) == 0), "Linkstate for netif1 is down");
 
-ok((not defined(NetworkInterface->new(name=>"unreasonable-name-000112232"))), "Can't create an interface from NE interface");
+is(Net::NetworkInterface->new(name=>"unreasonable-name-000112232"), undef,
+    "Can't create an interface from NE interface");
+
 done_testing();
 
 END {

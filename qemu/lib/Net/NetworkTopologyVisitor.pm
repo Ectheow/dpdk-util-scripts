@@ -22,7 +22,7 @@ sub add_hook
         @_,
     );
 
-    croak "I need a NetworkTopologyNode" if not  $args{instance}->isa("NetworkTopologyNode");
+    croak "I need a NetworkTopologyNode" if not  $args{instance}->isa("Net::NetworkTopologyNode");
 
     $self->{hooks}{$args{type}} = $args{instance};
     return 1;

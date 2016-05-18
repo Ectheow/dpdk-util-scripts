@@ -1,4 +1,4 @@
-package NetworkTopologyNode;
+package Net::NetworkTopologyNode;
 use strict;
 use warnings;
 use v5.20;
@@ -13,7 +13,7 @@ sub new {
 sub create {
     my $self = shift;
 
-    %args = (
+    my %args = (
         config=> undef,
         @_,
     );

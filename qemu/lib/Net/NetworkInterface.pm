@@ -1,5 +1,5 @@
 package Net::NetworkInterface;
-use NetworkUtils qw(address_comare_noroute);
+use Net::NetworkUtils qw(address_comare_noroute);
 use strict;
 use warnings;
 use JSON;

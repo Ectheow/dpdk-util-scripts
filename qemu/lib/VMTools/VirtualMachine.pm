@@ -1,9 +1,9 @@
-package VirtualMachine;
+package VMTools::VirtualMachine;
 use strict;
 use warnings;
 use v5.20;
 use Carp;
-use NetworkUtils;
+use Net::NetworkUtils;
 use ProcessTools;
 use Fcntl qw(:DEFAULT SEEK_SET SEEK_CUR);
 use File::Temp qw(:POSIX);
