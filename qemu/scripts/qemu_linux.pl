@@ -41,7 +41,7 @@ my %args = (
     isoloc => undef,               # location of ISO file to insert into CD drive.
     vhostuser_sock => undef,       # name of vhostuser file in /var/run/openvswitch (socket)
     veth_addr=>undef,              # address to assign to a veth interface.
-    veth_name_root=>undef,         # root name for veth device(s)
+    veth_name_root=>"veth",         # root name for veth device(s)
     use_hugepage_backend => 0,     # use hugepages object for memory backend?
     test_dev_mac => undef,
     mgmt_attach_to_bridge=>undef,
@@ -78,11 +78,13 @@ if (defined $args{mgmt_attach_to_bridge}) {
 
 if (defined $args{veth_addr}) {
     $veth = Net::VethNode->new; 
-    $veth->create(config=>
-        {
+    $veth->create(
+        config=> {
             ips=>[undef, $args{veth_addr}],
-            names=>[$args{veth_name_root}. "0",
-                    $args{veth_name_root}. "1"]});                    
+            name=>$args{veth_name_root}
+        });                    
+    $bridge->add_interface(interface=>
+        Net::NetworkInterface->new(name=>($veth->names())->[0] ) );
 } elsif (defined $args{veth_name_root}) {
     croak "Veth name root defined w/o veth-addr";
 }

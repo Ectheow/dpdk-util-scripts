@@ -3,6 +3,7 @@ use warnings;
 use v5.20;
 use Carp;
 use Net::NetworkTopologyVisitor;
+use Test::More;
 
 my $bridgename="br0";
 my $bridge_json=<<EOF;
@@ -20,3 +21,5 @@ my $bridge_json=<<EOF;
     }
 }
 EOF
+
+done_testing();

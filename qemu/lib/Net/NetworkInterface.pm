@@ -46,7 +46,7 @@ sub new {
     );
 
     my $data = {iface_name=>$args{name}};
-
+    croak "undefined name" if not defined $args{name};
     if (not (-d "/sys/class/net/$args{name}/")) {
         carp "Interface doesn't exist";
         return undef;

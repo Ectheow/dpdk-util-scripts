@@ -21,13 +21,19 @@ sub __create {
     $self->{names} = [$root_name . "0", $root_name . "1"];
     unless (not defined $ips) {
         pairwise {
-            system("ip address add $b dev $a") or do {
-                carp "Can't add IP $b to $a";
-            };
+            if (defined $b) { 
+                (system("ip address add $b dev $a") == 0) or do {
+                    carp "Can't add IP $b to $a";
+                };
+            }
         } @{$self->{names}}, @{$ips};
     }
 }
 
+sub names {
+    my $self = shift;
+    return $self->{names};
+}
 sub DESTROY {
     my $self = shift;
 
