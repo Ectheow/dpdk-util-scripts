@@ -98,11 +98,11 @@ sub create_qemu_command {
     $cmdline .= "-drive file=$args{imgloc} " if defined $args{imgloc};
 
     my $i=1;
-    foreach my $sock (@{$args{vhost_user_sock}}) {
+    foreach my $sock (@{$args{vhostuser_sock}}) {
         $cmdline .=
-        "-chardev socket,id=char$i,path=/var/run/openvswitch/$sock->{name} "
+        " -chardev socket,id=char$i,path=/var/run/openvswitch/$sock->{name} "
         . "-netdev type=vhost-user,id=mynet$i,chardev=char$i,vhostforce "
-        . "-device virtio-net-pci,mac=$sock->{addr},netdev=mynet1";
+        . "-device virtio-net-pci,mac=$sock->{mac},netdev=mynet$i ";
         $i++;
     }
 

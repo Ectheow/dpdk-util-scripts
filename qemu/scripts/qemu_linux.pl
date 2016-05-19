@@ -16,9 +16,9 @@ use IO::Select;
 sub add_vhostuser_sock {
     my ($args, $toset) = @_;
 
-    my @list = split $toset, ",";
+    my @list = split ",", $toset;
 
-    scalar @list == 2 or croak "Need a comma-split pair";
+    scalar @list == 2 or croak "Need a comma-split pair: $toset";
 
     push @{$args->{vhostuser_sock}}, {name => $list[0], mac => $list[1]};
 
