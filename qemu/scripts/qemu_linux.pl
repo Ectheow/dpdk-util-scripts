@@ -13,6 +13,18 @@ use VMTools::Vnc;
 use IPC::Open3;
 use IO::Select;
 
+sub add_vhostuser_sock {
+    my ($args, $toset) = @_;
+
+    my @list = split $toset, ",";
+
+    scalar @list == 2 or croak "Need a comma-split pair";
+
+    push @{$args->{vhostuser_sock}}, {name => $list[0], mac => $list[1]};
+
+    return 1;
+}
+
 sub usage_and_exit {
     print<<"_EOF_";
 $0 usage:
@@ -21,9 +33,8 @@ $0 [--use-vnc (yes | no )] [ --vnc-port <portno> ] [ --mem-gb <size> ] [ --imglo
     --memory-gb <size>      Size of memory in GB
     --imgloc    <path>      path of disk image mounted as c
     --isoloc    <path>      path of iso image mounted as d
-    --vhostuser-sock <name> name of vhostuser port in /var/run/openvswitch
+    --vhostuser-sock <name>,<mac> name of vhostuser port in /var/run/openvswitch
     --use-hugepage-backend (yes | no)   use the hugepage backend (give VM backing hugepage store?)
-    --test-dev-mac                      MAC to give to vhostuser port on boot
     --veth-addr  (ip address)           address to give to veth device on bridge for routing
     --veth-name-root (string)           name for veths, will be <name-root>0 and <name-root>1
     --mgmt-attach-to-bridge             bridge to attach TAP interface for manatement to.
@@ -45,7 +56,22 @@ my %args = (
     use_hugepage_backend => 0,     # use hugepages object for memory backend?
     test_dev_mac => undef,
     mgmt_attach_to_bridge=>undef,
-    );   
+);   
+
+my %handlers = (
+    vnc_port => undef,
+    memory_gb => undef,
+    use_vnc => undef,
+    background => undef,
+    imgloc => undef,
+    isoloc => undef,
+    vhostuser_sock => \&add_vhostuser_sock,
+    veth_addr => undef,
+    veth_name_root => undef,
+    use_huagepage_backend => undef,
+    mgmt_attach_to_bridge => undef,
+);
+
 
 while((my $var = shift @ARGV)) {
     if(not $var =~ m/^\-\-.*/) {
@@ -59,7 +85,11 @@ while((my $var = shift @ARGV)) {
     if (not exists($args{$var})) {
         croak "Bad key: $var";
     } else {
-        $args{$var} = shift @ARGV;
+        if (defined($handlers{$var})) {
+            $handlers{$var}->(\%args, shift(@ARGV));
+        } else {
+            $args{$var} = shift @ARGV;
+        }
         if ($args{$var} =~ /[Nn][Oo].*/) {
             $args{$var} = 0;
         } elsif($args{$var} eq "yes") {
@@ -68,9 +98,9 @@ while((my $var = shift @ARGV)) {
     }
 }
 
-
 my $bridge = undef;
 my $veth = undef;
+
 if (defined $args{mgmt_attach_to_bridge}) {
     $bridge = Net::LinuxBridge->new(name=>$args{mgmt_attach_to_bridge});
     $args{mgmt_attach_to_bridge} = $bridge;
@@ -85,9 +115,7 @@ if (defined $args{veth_addr}) {
         });                    
     $bridge->add_interface(interface=>
         Net::NetworkInterface->new(name=>($veth->names())->[0] ) );
-} elsif (defined $args{veth_name_root}) {
-    croak "Veth name root defined w/o veth-addr";
-}
+} 
 
 my $qemu = VMTools::VirtualMachine->new(%args);
 $qemu->fork_vm() or croak "Can't fork qemu VM";

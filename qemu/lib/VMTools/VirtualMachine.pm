@@ -93,13 +93,19 @@ sub create_qemu_command {
     . "-vnc :$args{vnc_port} "
     . "-m " . $mem_mb ." "
     . "-name 'hlinux qemu' ";
+
     $cmdline .= "-cdrom $args{isoloc} " if defined $args{isoloc};
     $cmdline .= "-drive file=$args{imgloc} " if defined $args{imgloc};
 
-    $cmdline .=
-        "-chardev socket,id=char1,path=/var/run/openvswitch/$args{vhostuser_sock} "
-    . "-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce "
-    . "-device virtio-net-pci,mac=$args{test_dev_mac},netdev=mynet1" if $args{vhostuser_sock};
+    my $i=1;
+    foreach my $sock (@{$args{vhost_user_sock}}) {
+        $cmdline .=
+        "-chardev socket,id=char$i,path=/var/run/openvswitch/$sock->{name} "
+        . "-netdev type=vhost-user,id=mynet$i,chardev=char$i,vhostforce "
+        . "-device virtio-net-pci,mac=$sock->{addr},netdev=mynet1";
+        $i++;
+    }
+
 
     $cmdline .=
     " -object memory-backend-file,id=mem,size=" . $mem_gb . ",mem-path=/dev/hugepages,share=on " 
