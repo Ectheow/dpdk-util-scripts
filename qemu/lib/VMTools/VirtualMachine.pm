@@ -77,6 +77,7 @@ sub create_qemu_command {
         memory_gb=>undef,
         use_hugepage_backend=>undef,
         vhost_user_sock=>undef,
+        cores=>undef,
         @_,
     );
 
@@ -98,6 +99,11 @@ sub create_qemu_command {
     $cmdline .= "-drive file=$args{imgloc} " if defined $args{imgloc};
 
     my $i=1;
+    
+    if (defined $args{cores}) {
+        $cmdline .= " -smp cpus=$args{cores}";
+    } 
+
     foreach my $sock (@{$args{vhostuser_sock}}) {
         $cmdline .=
         " -chardev socket,id=char$i,path=/var/run/openvswitch/$sock->{name} "

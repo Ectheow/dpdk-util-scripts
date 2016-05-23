@@ -39,6 +39,7 @@ $0 [--use-vnc (yes | no )] [ --vnc-port <portno> ] [ --mem-gb <size> ] [ --imglo
     --veth-name-root (string)           name for veths, will be <name-root>0 and <name-root>1
     --mgmt-attach-to-bridge             bridge to attach TAP interface for manatement to.
     --background (yes|no)  background process after spawning VNC/qemu.
+    --cores <number>                    Number of cores to allocate
 _EOF_
     exit 0;
 }
@@ -56,6 +57,7 @@ my %args = (
     use_hugepage_backend => 0,     # use hugepages object for memory backend?
     test_dev_mac => undef,
     mgmt_attach_to_bridge=>undef,
+    cores => undef,
 );   
 
 my %handlers = (
@@ -70,6 +72,7 @@ my %handlers = (
     veth_name_root => undef,
     use_huagepage_backend => undef,
     mgmt_attach_to_bridge => undef,
+    cores=>undef,
 );
 
 
