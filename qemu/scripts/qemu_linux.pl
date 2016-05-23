@@ -8,10 +8,13 @@ use Carp;
 use VMTools::VirtualMachine;
 use Net::LinuxBridge;
 use Net::VethNode;
+use Net::NatNode;
 use ProcessTools;
 use VMTools::Vnc;
 use IPC::Open3;
 use IO::Select;
+
+my $nat;
 
 sub add_vhostuser_sock {
     my ($args, $toset) = @_;
@@ -34,12 +37,12 @@ sub add_nat {
         croak "You need to define a veth address";
     }
 
-    my $nat = Net::NatNode->new();
+    $nat = Net::NatNode->new();
 
     $nat->create(config=>
         {
-            input_iface=>$args{veth_name_root}. "1",
-            output_iface=>$args{nat},
+            input_iface=>$args->{veth_name_root}. "1",
+            output_iface=>$output_iface,
         });
     return 1;
 }
@@ -114,11 +117,11 @@ while((my $var = shift @ARGV)) {
             $handlers{$var}->(\%args, shift(@ARGV));
         } else {
             $args{$var} = shift @ARGV;
-        }
-        if ($args{$var} =~ /[Nn][Oo].*/) {
-            $args{$var} = 0;
-        } elsif($args{$var} eq "yes") {
-            $args{$var} = 1;
+            if ($args{$var} =~ /[Nn][Oo].*/) {
+                $args{$var} = 0;
+            } elsif($args{$var} eq "yes") {
+                $args{$var} = 1;
+            }
         }
     }
 }

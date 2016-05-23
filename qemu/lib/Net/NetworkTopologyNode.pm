@@ -20,7 +20,7 @@ sub create {
 
     croak "Undefined configuration" if not defined $args{config};
 
-    $self->__create($args{config});
+    return $self->__create($args{config});
 
 }
 
