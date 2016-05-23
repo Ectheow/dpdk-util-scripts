@@ -3,8 +3,9 @@ use strict;
 use warnings;
 use v5.20;
 use Carp;
-use NetworkTopologyNode;
-use parent qw(NetworkTopologyNode);
+use Net::NetworkTopologyNode;
+use Net::NetworkInterface;
+use parent qw(Net::NetworkTopologyNode);
 
 sub __create {
     my ($self, $config) = @_;
@@ -16,7 +17,7 @@ sub __create {
         croak "ip link create for dummy $name failed";
     };
 
-    my $interface = NetworkInterface->new($name);
+    my $interface = Net::NetworkInterface->new(name=>$name);
     unless (not defined $ip) {
         $interface->add_ip($config->{ip}) or do {
             carp "Can't add IP to $name";
@@ -29,9 +30,10 @@ sub __create {
 sub DESTROY {
     my $self = shift;
 
-    my $todel = $self->{interface}->name;
+    my $todel = $self->{interface}->name();
 
-    system("ip link del $todel") or do {
+    system("ip link del $todel") == 0 or do {
         carp "Can't delete dummy device $todel";
     };
 }
+1;

@@ -48,14 +48,15 @@ sub parse_json
         <$fh>;
     };
 
-    foreach my $key (keys %{$hash}) {
-       do {
-           carp "no handler for type $key";
-           next; 
-       } if (not exists $self->{hooks}{$key});
-    
-       $self->{hooks}{$key}->create(config=>$hash->{$key}); 
+    foreach my $node (@{$hash->{nodes}}) {
+        my $handler = $node->{handler};
+        if (not exists $self->{hooks}{$handler}) {
+            carp "no handler for type $node";
+            next;
+        }
+        $self->{hooks}{$handler}->create(config=>$node); 
     }
+
     return 1;
 }
 

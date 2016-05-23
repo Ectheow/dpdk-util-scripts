@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 use POSIX ":sys_wait_h";
-use IPC::Cmd qw(can_run run_forked);
+use IPC::Cmd qw( can_run run_forked);
 use strict;
 use warnings;
 use v5.20;
@@ -25,6 +25,25 @@ sub add_vhostuser_sock {
     return 1;
 }
 
+sub add_nat {
+    my ($args, $output_iface) = @_;
+
+    if (not defined($args->{mgmt_attach_to_bridge})) {
+        croak "You need to specify a bridge";
+    } elsif(not defined($args->{veth_addr})) {
+        croak "You need to define a veth address";
+    }
+
+    my $nat = Net::NatNode->new();
+
+    $nat->create(config=>
+        {
+            input_iface=>$args{veth_name_root}. "1",
+            output_iface=>$args{nat},
+        });
+    return 1;
+}
+
 sub usage_and_exit {
     print<<"_EOF_";
 $0 usage:
@@ -40,6 +59,7 @@ $0 [--use-vnc (yes | no )] [ --vnc-port <portno> ] [ --mem-gb <size> ] [ --imglo
     --mgmt-attach-to-bridge             bridge to attach TAP interface for manatement to.
     --background (yes|no)  background process after spawning VNC/qemu.
     --cores <number>                    Number of cores to allocate
+    --nat <output-to>
 _EOF_
     exit 0;
 }
@@ -57,6 +77,7 @@ my %args = (
     use_hugepage_backend => 0,     # use hugepages object for memory backend?
     test_dev_mac => undef,
     mgmt_attach_to_bridge=>undef,
+    nat=>undef,
     cores => undef,
 );   
 
@@ -73,6 +94,7 @@ my %handlers = (
     use_huagepage_backend => undef,
     mgmt_attach_to_bridge => undef,
     cores=>undef,
+    nat=> \&add_nat,
 );
 
 

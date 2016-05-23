@@ -11,10 +11,10 @@ use Test::More;
 my $veth_name = "myveth";
 my $veth_json=<<EOF;
 {
-"veth":{
+    "nodes":[
+    {"handler":"veth",
     "name":"$veth_name",
-    "ips":["192.168.10.2/24", "192.168.10.3/24"]
-}
+    "ips":["192.168.10.2/24", "192.168.10.3/24"]}]
 }
 EOF
 
