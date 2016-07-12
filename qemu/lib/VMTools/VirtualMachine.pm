@@ -87,8 +87,21 @@ sub create_qemu_command {
     my $mem_mb = $args{memory_gb} * 1024;
     my $mem_gb = $args{memory_gb} . "G";
 
+    my $cmdline = "";
+
+    if (defined $args{numa_node} and $args{numa_node} >= 0) {
+        $cmdline .= "numactl --membind=$args{numa_node} ";
+        $cmdline .= " -- ";
+        
+    }
+    if (defined $args{core_list}) {
+	    $cmdline .= "taskset -c ";
+        $cmdline .= join ",", @{$args{core_list}};
+        $cmdline .= " "; 
+    }
+
     #croak "Can't run $KVM_CMD" if not can_run($KVM_CMD);
-    my $cmdline = "sudo $KVM_CMD "
+    $cmdline .= "sudo $KVM_CMD "
     . "-boot order=cd "
     . "-cpu host "
     . "-vnc :$args{vnc_port} "

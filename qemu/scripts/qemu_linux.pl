@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 use POSIX ":sys_wait_h";
-use IPC::Cmd qw( can_run run_forked);
+use IPC::Cmd qw(can_run run_forked);
 use strict;
 use warnings;
 use v5.20;
@@ -8,13 +8,18 @@ use Carp;
 use VMTools::VirtualMachine;
 use Net::LinuxBridge;
 use Net::VethNode;
-use Net::NatNode;
 use ProcessTools;
 use VMTools::Vnc;
 use IPC::Open3;
 use IO::Select;
 
-my $nat;
+sub process_core_list {
+    my ($args, $toset) = @_;
+
+    my @list = split ",", $toset;
+
+    $args->{core_list} = [@list];
+}
 
 sub add_vhostuser_sock {
     my ($args, $toset) = @_;
@@ -25,25 +30,6 @@ sub add_vhostuser_sock {
 
     push @{$args->{vhostuser_sock}}, {name => $list[0], mac => $list[1]};
 
-    return 1;
-}
-
-sub add_nat {
-    my ($args, $output_iface) = @_;
-
-    if (not defined($args->{mgmt_attach_to_bridge})) {
-        croak "You need to specify a bridge";
-    } elsif(not defined($args->{veth_addr})) {
-        croak "You need to define a veth address";
-    }
-
-    $nat = Net::NatNode->new();
-
-    $nat->create(config=>
-        {
-            input_iface=>$args->{veth_name_root}. "1",
-            output_iface=>$output_iface,
-        });
     return 1;
 }
 
@@ -62,44 +48,39 @@ $0 [--use-vnc (yes | no )] [ --vnc-port <portno> ] [ --mem-gb <size> ] [ --imglo
     --mgmt-attach-to-bridge             bridge to attach TAP interface for manatement to.
     --background (yes|no)  background process after spawning VNC/qemu.
     --cores <number>                    Number of cores to allocate
-    --nat <output-to>
+    --numa-node <number>		Numa node to bind memory to
+    --core-list <cores>			Core list
 _EOF_
     exit 0;
 }
 
-my %args = (
-    vnc_port => 5,                 # VNC port to listen on/connect to (if --use-vnc)
-    memory_gb => 4,                # GB of memory for VM to use.
-    use_vnc => 0,                  # fork off a VNC client once the process has started?
-    background => 0,               # background? 
-    imgloc => undef,               # location of harddisk image file.
-    isoloc => undef,               # location of ISO file to insert into CD drive.
-    vhostuser_sock => undef,       # name of vhostuser file in /var/run/openvswitch (socket)
-    veth_addr=>undef,              # address to assign to a veth interface.
-    veth_name_root=>"veth",         # root name for veth device(s)
-    use_hugepage_backend => 0,     # use hugepages object for memory backend?
-    test_dev_mac => undef,
-    mgmt_attach_to_bridge=>undef,
-    nat=>undef,
-    cores => undef,
+my %args_spec = (
+    vnc_port => {default=>5, handler=>undef, value=>undef},                 # VNC port to listen on/connect to (if --use-vnc)
+    memory_gb => {default=>4, handler=>undef},                # GB of memory for VM to use.
+    use_vnc => {deafult=>0, handler=>undef},                  # fork off a VNC client once the process has started?
+    background => {default=>0, handler=>undef},               # background? 
+    imgloc => {default=>undef, handler=>undef},               # location of harddisk image file.
+    isoloc => {default=>undef, handler=>undef},               # location of ISO file to insert into CD drive.
+    vhostuser_sock => {default=>undef, handler=>\&add_vhostuser_sock},       # name of vhostuser file in /var/run/openvswitch (socket)
+    veth_addr=> {default=>undef, handler=>undef},              # address to assign to a veth interface.
+    veth_name_root=> {default=>undef, handler=>undef},         # root name for veth device(s)
+    use_hugepage_backend => {default=>undef, hanlder=>undef},     # use hugepages object for memory backend?
+    test_dev_mac => {default=>undef, handler=>undef},
+    mgmt_attach_to_bridge=>{default=>undef, handler=>undef},
+    cores => {default=>undef, handler=>undef},
+    numa_node => {
+        default=>-1, 
+        handler=>undef}, 
+    core_list => {
+        default=>[],
+        handler=>\&process_core_list},
 );   
 
-my %handlers = (
-    vnc_port => undef,
-    memory_gb => undef,
-    use_vnc => undef,
-    background => undef,
-    imgloc => undef,
-    isoloc => undef,
-    vhostuser_sock => \&add_vhostuser_sock,
-    veth_addr => undef,
-    veth_name_root => undef,
-    use_huagepage_backend => undef,
-    mgmt_attach_to_bridge => undef,
-    cores=>undef,
-    nat=> \&add_nat,
-);
+my %args = ();
 
+foreach my $k (keys %args_spec) {
+	$args{$k} = $args_spec{$k}->{default};
+}
 
 while((my $var = shift @ARGV)) {
     if(not $var =~ m/^\-\-.*/) {
@@ -110,21 +91,22 @@ while((my $var = shift @ARGV)) {
     if ($var eq "help") {
         usage_and_exit();
     }
-    if (not exists($args{$var})) {
+    if (not exists($args_spec{$var})) {
         croak "Bad key: $var";
     } else {
-        if (defined($handlers{$var})) {
-            $handlers{$var}->(\%args, shift(@ARGV));
+        if (defined($args_spec{$var}->{handler})) {
+            $args_spec{$var}->{handler}->(\%args, shift(@ARGV));
         } else {
             $args{$var} = shift @ARGV;
-            if ($args{$var} =~ /[Nn][Oo].*/) {
-                $args{$var} = 0;
-            } elsif($args{$var} eq "yes") {
-                $args{$var} = 1;
-            }
+        }
+        if ($args{$var} =~ /[Nn][Oo].*/) {
+            $args{$var} = 0;
+        } elsif($args{$var} eq "yes") {
+            $args{$var} = 1;
         }
     }
 }
+
 
 my $bridge = undef;
 my $veth = undef;
