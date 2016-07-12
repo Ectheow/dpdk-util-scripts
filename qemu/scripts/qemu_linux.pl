@@ -26,9 +26,13 @@ sub add_vhostuser_sock {
 
     my @list = split ",", $toset;
 
-    scalar @list == 2 or croak "Need a comma-split pair: $toset";
-
-    push @{$args->{vhostuser_sock}}, {name => $list[0], mac => $list[1]};
+    scalar @list >= 2 or croak "Need a comma-split pair: $toset";
+    push @{$args->{vhostuser_sock}}, {
+		name => $list[0], 
+		mac => $list[1],
+		queues => ($#list >= 2 ? $list[2] : undef),
+	        vectors => ($#list >= 3 ? $list[3] : undef),
+	};
 
     return 1;
 }
@@ -41,7 +45,7 @@ $0 [--use-vnc (yes | no )] [ --vnc-port <portno> ] [ --mem-gb <size> ] [ --imglo
     --memory-gb <size>      Size of memory in GB
     --imgloc    <path>      path of disk image mounted as c
     --isoloc    <path>      path of iso image mounted as d
-    --vhostuser-sock <name>,<mac> name of vhostuser port in /var/run/openvswitch
+    --vhostuser-sock <name>,<mac>,<n-queues>,<n-vectors> name of vhostuser port in /var/run/openvswitch
     --use-hugepage-backend (yes | no)   use the hugepage backend (give VM backing hugepage store?)
     --veth-addr  (ip address)           address to give to veth device on bridge for routing
     --veth-name-root (string)           name for veths, will be <name-root>0 and <name-root>1

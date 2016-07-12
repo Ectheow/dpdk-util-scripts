@@ -163,9 +163,7 @@ sub get_linkstate {
     my ($self) = @_;
     my $flags = do {
         local $/=undef;
-        open my $flags_file, "<", "/sys/class/net/". $self->{iface_name}. "/flags" or do {
-            croak "Can't open flags file for link state: $self->{iface_name}";
-        };
+        open my $flags_file, "<", "/sys/class/net/". $self->{iface_name}. "/flags";
         <$flags_file>;
     };
     chomp $flags;

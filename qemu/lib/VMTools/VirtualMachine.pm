@@ -120,8 +120,12 @@ sub create_qemu_command {
     foreach my $sock (@{$args{vhostuser_sock}}) {
         $cmdline .=
         " -chardev socket,id=char$i,path=/var/run/openvswitch/$sock->{name} "
-        . "-netdev type=vhost-user,id=mynet$i,chardev=char$i,vhostforce "
-        . "-device virtio-net-pci,mac=$sock->{mac},netdev=mynet$i ";
+        . "-netdev type=vhost-user,id=mynet$i,chardev=char$i,vhostforce";
+        $cmdline .= ",queues=$sock->{queues}" if defined $sock->{queues};
+        $cmdline .= " ";
+        $cmdline .= 
+             "-device virtio-net-pci,mac=$sock->{mac},netdev=mynet$i";
+        $cmdline .= ",mq=on,vectors=$sock->{vectors}" if defined $sock->{vectors};
         $i++;
     }
 
