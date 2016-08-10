@@ -1,0 +1,298 @@
+#!/bin/bash
+
+set -eu
+
+packages=( openvswitch-common openvswitch-switch openvswitch-switch-dpdk )
+alternatives=( /usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk
+               /usr/lib/openvswitch-switch/ovs-vswitchd 
+               )
+dpdk_vswitchd=${alternatives[0]}
+extra_packages_should_be_installed=(
+    libdpdk0
+    dpdk)
+repo_remote='git@github.hpe.com:hpelinux/openvswitch.git'
+repo_tag='debian/2.5.1.2-1+hpelinux2'
+repo_dir=''
+uninstall=0
+deconfigure=0
+
+function ok {
+    echo  "OK $@"
+}
+
+function status {
+    echo "STATUS $@"
+}
+
+function skip {
+    echo "SKIP $@"
+}
+
+function error {
+    echo 1>&2 "ERROR $@"
+    exit 1
+}
+
+function check_version {
+
+    [ -f "changelog" ] || error "no changelog present"
+
+    version=$(head -1 changelog | perl -n -e 'chomp; m/\((.*)\)/; print $1;')
+    repo_tag_version=$(echo $repo_tag | perl -n -e 'm!.*/(.*)!; print $1;')
+    if [ $version != $repo_tag_version ]
+    then
+        error "bad tag, we're on version $version in repo, but the tag is: $repo_tag"
+    fi
+
+    system_version=$(dpkg-query -f '${Version}\n' -W 'openvswitch*' | perl -n -e 'print if /\S/' | uniq)
+    
+    if [ X"$system_version" != X"$version" ]
+    then
+        error "system version doesn't match the changelog or repo version: $system_version $version"
+    fi
+
+    return 0
+}
+
+function _test_install_files {
+    olddir=$(pwd)
+    if [ -z $repo_dir ]
+    then
+        repo_dir=$(mktemp -d)
+        git -C $repo_dir clone $repo_remote || error "can't clone remote repo $repo_remote"    
+        repo_dir=$repo_dir/openvswitch
+    fi
+
+    cd $repo_dir
+
+    git checkout $repo_tag &>/dev/null || error "can't checkout $repo_tag"
+    cd debian
+    check_version
+
+    for package in ${packages[@]}
+    do
+        if ! [ -f ${package}.install ]
+        then
+            continue
+        fi
+
+       cat ${package}.install |  awk -f <(cat - <<-EOF
+{
+    n = split(\$0,a," ");
+    if (n > 1) {
+        print "/" a[n];
+    } else {
+        print "/" a[1];
+    }
+}
+EOF
+) | while read line
+        do
+            #echo "scanning for $line in $package"
+            if [[ "$line" =~ .*\.[1-9].* ]]
+            then
+                found=0
+                for suffix in gz bz2 xz
+                do
+                    [ -e "${line}.${suffix}" ] && found=1
+                done
+                [ $found = 1 ] || error "file $line (manpage) doesn't exist on system"
+            elif [[ "$line" =~ \* ]]
+            then
+                skip "$line"
+            else 
+                [ -e "$line" ] || error "file $line from $package doesn't exist on the system"
+            fi
+        done 
+    done
+    cd $olddir
+
+    if [[ $repo_dir =~ /tmp ]]
+    then
+        status "Remove $repo_dir"
+        rm -rf $repo_dir
+    fi
+
+    ok " files"
+}
+
+
+
+function test_install {
+    apt update &>/dev/null || error "can't update apt"
+    for pkg in ${packages[@]}
+    do 
+        yes |  apt install $pkg &>/dev/null || error "can't install '$pkg': $?"
+    done
+    _test_install_files
+    ok "install"
+}
+
+function test_alternatives {
+    expected_alternative_string=$(echo ${alternatives[@]} | sed 's/[\t ][\t ]*/\n/g' | sort | perl -pe 'chomp if eof; tr/\n/ /;')
+    actual_alternative_string=$(update-alternatives --list ovs-vswitchd | sort | perl -pe 'chomp if eof; tr/\n/ /;')
+
+    if [ "$expected_alternative_string" != "$actual_alternative_string" ]
+    then
+        error "alternatives not correct"
+    fi
+
+    for alternative in ${alternatives[@]}
+    do
+        [ -x $alternative ] || error "$alternative isn't a file"
+    done
+
+    ok "alternatives"
+}
+
+
+function test_ovs_startup {
+     /etc/init.d/openvswitch-switch "start"
+    if [ $? != 0 ] 
+    then
+        error "can't start OVS"
+    fi
+    
+    if ! systemctl status openvswitch-switch &>/dev/null
+    then
+        error "bad systemctl status"
+    fi
+
+    if [ -z "$(ps --no-headers -C ovs-vswitchd)" ]
+    then
+        error "ovs-vswitchd isn't running"
+    fi
+
+    if [ -z "$(ps --no-headers -C ovsdb-server)" ]
+    then
+        error "ovsdb-server isnt' running"
+    fi
+
+    ok "start OVS"
+}
+
+function test_ovs_commands {
+    if !  ovs-vsctl show &>/dev/null
+    then
+        error "can't run a ovs-vsctl show command"
+    fi
+
+    if !  ovs-appctl dpctl/show &>/dev/null
+    then
+        error "can't run appctl dpctl/show command"
+    fi
+
+    ok "simple OVS command invocation"
+}
+
+function test_ovs_add_bridge {
+     ovs-vsctl --if-exists del-br br1 1>/dev/null || error "can't delete bridge"
+     ovs-vsctl add-br br1 1>/dev/null || error "can't add bridge"
+}
+
+function test_ovs_add_ports {
+    :
+}
+
+function test_ovs_traffic {
+    :
+}
+
+function test_ovs_add_dpdk_bridge {
+
+    cp ./default-openvswitch.template /etc/default/openvswitch-switch
+    update-alternatives --set ovs-vswitchd $dpdk_vswitchd
+    systemctl stop openvswitch-switch || error "can't restart ovs"
+    systemctl start openvswitch-switch || error "can't start OVS"
+
+    ovs-vsctl --if-exists del-br br1 1>/dev/null || error "can't delete bridge"
+
+    ovs-vsctl add-br br1 -- set Bridge br1 datapath_type=netdev 1>/dev/null \
+        || error "can't add DPDK bridge"
+
+    ok "add netdev bridge"
+}
+
+function test_ovs_add_dpdk_ports {
+
+    for portno in 0
+    do
+        ovs-vsctl add-port br1 dpdk${portno} -- set Interface dpdk${portno} type=dpdk
+    done
+    status "sleep while PMD ramps up"
+    sleep 5
+
+    usage=$(ps -LC ovs-vswitchd -o %cpu | sort -g -r | head -1)
+
+    if ! ((usage>=98))
+    then
+        error "CPU usage is only $usage"
+    fi
+    ok "add DPDK ports"
+}
+
+function test_ovs_add_vhostuser_ports {
+    for portno in 0 1 
+    do
+        ovs-vsctl add-port br1 vhostuser${portno} -- set Interface vhostuser${portno} type=dpdkvhostuser
+    done
+
+    ok "add vhostuser ports"
+}
+
+function test_remove {
+    :
+}
+
+function usage {
+cat - <<-EOF
+Usage: $0 [--repo-dir directory] [--tag tag] 
+
+$0 is a basic test for an OVS install, to make sure basic things like
+installation, adding ports, and eventually traffic flow work.    
+EOF
+}
+while [ $# != 0 ]
+do
+    case  $1 in
+        --repo-dir)
+            repo_dir=$2
+            shift
+            ;;
+        --tag)
+            repo_tag=$2
+            shift
+            ;;
+        --uninstall)
+            uninstall=1
+            shift
+            ;;
+        --deconfigure)
+            deconfigure=1
+            shift
+            ;;
+        --help|*)
+            usage
+            exit 0
+            ;;
+    esac
+    shift
+done
+
+[ $(whoami) = 'root' ] || error "you're not root"
+
+tests=(
+    install
+    alternatives
+    ovs_startup
+    ovs_commands
+    ovs_add_bridge
+    ovs_add_dpdk_bridge
+    ovs_add_dpdk_ports
+    ovs_add_vhostuser_ports)
+
+
+for test in ${tests[@]} 
+do
+    test_${test}
+done
