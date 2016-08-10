@@ -32,7 +32,7 @@ def done(message):
     print("DONE %s" % message)
 def fatal_error(message, long_message, exception=None):
     print("ERROR: %s\n%s", message, long_message)
-    sys.exit(EXIT_FAILURE)
+    raise SystemExit(1)
 
 GIT_BISECT_GOOD=0
 GIT_BISECT_BAD=1
@@ -168,25 +168,12 @@ def get_ps_list(fields, taskname=None):
 def taskset_vm(args):
     matches = []
     status("Taskset VM")
-    class PSLine:
-        def __init__(self, line):
-            splits = re.split(r'\s+', line)
-            if len(splits) != 4:
-                raise RuntimeError("Not enough fields in PS split, got: %s" % line)
-            self.comm = splits[0]
-            self.pid = int(splits[1])
-            self.psr = int(splits[2])
-            hours,mins,secs = map(int, splits[3].split(':'))
-            self.time = float(hours*60*60+mins*60+secs)
-        def __cmp__(self, other):
-            return cmp(self.time, other.time)
+    
 
-        
-    matches = [PSLine(i) for i in 
-            filter(lambda line: True if len(line) > 0 else False, 
-                yield_lines_from_process(
-                    get_ps_list(['comm', 'tid', 'psr', 'time'],
-                    taskname=QEMU_PROCESS_NAME)))]
+    matches = [PSLine(i) for i in
+            filter(lambda line: True if len(line) > 0 else False,
+                PS(process_name=QEMU_PROCESS_NAME, 
+                    fields=['comm', 'tid', 'psr', 'time']))]
 
     matches.sort()
     matching_process=matches[-1]
@@ -205,7 +192,7 @@ def taskset_vm(args):
         status("Move tid %d to psr %d, hex mask %s"%
             (matching_process.pid, core, hex(1<<core)))
         subprocess.check_call(
-            "taskset -p %s %d" % 
+            "taskset -p %s %d" %
                 (hex(1<<core),
                 matching_process.pid),
              shell=True)
@@ -432,27 +419,36 @@ def install_pkgs(args):
 
 def main(args):
     parser = argparse.ArgumentParser(description = 'Installer argument parser.')
+
     parser.add_argument('--directory',
         type=str,
         help='Directory to chdir to and install pkgs from')
+
     parser.add_argument('--version',
         type=str,
         help='Debian version of packages to install')
+
     parser.add_argument("--no-build-ovs",
-        type=bool,
+        dest='no_build_ovs',
+        action='store_true',
         help='Don\'t build OVS')
+
     parser.add_argument('--dpdk',
         type=str,
         default=config['with_dpdk'])
+
     parser.add_argument('--no-start-ovs',
-        type=bool,
-        default=False,
+        dest='no_start_ovs',
+        action='store_true',
         help='Don\'t start OVS (or stop it)')
+
     parser.add_argument('--extra-cflags',
         type=str,
         default=None)
+
     parser.add_argument('--no-start-vm',
-        type=bool,
+        dest='no_start_vm',
+        action='store_true',
         default=False,
         help='Don\'t stop or start VM')
 
