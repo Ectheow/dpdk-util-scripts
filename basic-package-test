@@ -33,6 +33,10 @@ function error {
     exit 1
 }
 
+#
+# Checks that the system version and the repo version, as well as the debian
+# changelog version in the repo, are all the same. Aborts the whole thing if
+# not.
 function check_version {
 
     [ -f "changelog" ] || error "no changelog present"
@@ -54,6 +58,10 @@ function check_version {
     return 0
 }
 
+#
+# test that all the files in the .install files are actually installed on the
+# system. We do this with the git repo, we clone it (unless given a pointer to
+# it) and check the files.
 function _test_install_files {
     olddir=$(pwd)
     if [ -z $repo_dir ]
@@ -117,7 +125,8 @@ EOF
 }
 
 
-
+# 
+# test that we can install the packages without error.
 function test_install {
     apt update &>/dev/null || error "can't update apt"
     for pkg in ${packages[@]}
@@ -128,6 +137,9 @@ function test_install {
     ok "install"
 }
 
+# 
+# test that the alternatives are correct, i.e. we have alternatives
+# and they are the same as the expected alternatives.
 function test_alternatives {
     expected_alternative_string=$(echo ${alternatives[@]} | sed 's/[\t ][\t ]*/\n/g' | sort | perl -pe 'chomp if eof; tr/\n/ /;')
     actual_alternative_string=$(update-alternatives --list ovs-vswitchd | sort | perl -pe 'chomp if eof; tr/\n/ /;')
@@ -146,6 +158,9 @@ function test_alternatives {
 }
 
 
+#
+# test that OVS will start, using the init.d script. Verifies that it has
+# actually started by making sure the processes are actually running.
 function test_ovs_startup {
      /etc/init.d/openvswitch-switch "start"
     if [ $? != 0 ] 
@@ -171,6 +186,9 @@ function test_ovs_startup {
     ok "start OVS"
 }
 
+#
+# test that OVS simple commands can be run without error, i.e. a returncode
+# other than 0.
 function test_ovs_commands {
     if !  ovs-vsctl show &>/dev/null
     then
@@ -231,6 +249,8 @@ function test_ovs_add_dpdk_ports {
     ok "add DPDK ports"
 }
 
+#
+# test that we can add vhostuser ports to a bridge.
 function test_ovs_add_vhostuser_ports {
     for portno in 0 1 
     do
