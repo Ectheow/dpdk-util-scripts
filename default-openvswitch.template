@@ -1,0 +1,3 @@
+export OVS_VSWITCHD_GROUP='dummy'
+export OVS_VSWITCHD_UMASK='022'
+export DPDK_OPTS='--dpdk -c 0x6 --socket-mem=4096 -d /usr/lib/x86_64-linux-gnu/dpdk/librte_pmd_mlx4.so.1.1'
