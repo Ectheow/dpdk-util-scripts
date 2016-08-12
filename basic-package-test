@@ -52,7 +52,7 @@ function check_version {
 
     for package in ${packages[@]}
     do
-        pkg_version=$(dpkg-query -f '${Version}\n' -W '${package}' | perl -n -e 'print if /\S/' | uniq)
+        pkg_version=$(dpkg-query -f '${Version}\n' -W $package | perl -n -e 'print if /\S/' | uniq)
 
         if [ X"$pkg_version" != X"$version" ]
         then
@@ -195,13 +195,17 @@ function test_ovs_startup {
     ok "start OVS"
 }
 
+function ovs_vsctl {
+    ovs-vsctl --timeout=5 $@
+}
+
 #
 # test that OVS simple commands can be run without error, i.e. a returncode
 # other than 0.
 function test_ovs_commands {
-    if !  ovs-vsctl show &>/dev/null
+    if !  o-vsctl show &>/dev/null
     then
-        error "can't run a ovs-vsctl show command"
+        error "can't run a ovs_vsctl show command"
     fi
 
     if !  ovs-appctl dpctl/show &>/dev/null
@@ -213,8 +217,8 @@ function test_ovs_commands {
 }
 
 function test_ovs_add_bridge {
-     ovs-vsctl --if-exists del-br br1 1>/dev/null || error "can't delete bridge"
-     ovs-vsctl add-br br1 1>/dev/null || error "can't add bridge"
+     ovs_vsctl --if-exists del-br br1 1>/dev/null || error "can't delete bridge"
+     ovs_vsctl add-br br1 1>/dev/null || error "can't add bridge"
 }
 
 function test_ovs_add_ports {
@@ -232,9 +236,9 @@ function test_ovs_add_dpdk_bridge {
     systemctl stop openvswitch-switch || error "can't restart ovs"
     systemctl start openvswitch-switch || error "can't start OVS"
 
-    ovs-vsctl --if-exists del-br br1 1>/dev/null || error "can't delete bridge"
+    ovs_vsctl --if-exists del-br br1 1>/dev/null || error "can't delete bridge"
 
-    ovs-vsctl add-br br1 -- set Bridge br1 datapath_type=netdev 1>/dev/null \
+    ovs_vsctl add-br br1 -- set Bridge br1 datapath_type=netdev 1>/dev/null \
         || error "can't add DPDK bridge"
 
     ok "add netdev bridge"
@@ -244,7 +248,7 @@ function test_ovs_add_dpdk_ports {
 
     for portno in 0
     do
-        ovs-vsctl add-port br1 dpdk${portno} -- set Interface dpdk${portno} type=dpdk
+        ovs_vsctl add-port br1 dpdk${portno} -- set Interface dpdk${portno} type=dpdk
     done
     status "sleep while PMD ramps up"
     sleep 5
@@ -263,7 +267,7 @@ function test_ovs_add_dpdk_ports {
 function test_ovs_add_vhostuser_ports {
     for portno in 0 1 
     do
-        ovs-vsctl add-port br1 vhostuser${portno} -- set Interface vhostuser${portno} type=dpdkvhostuser
+        ovs_vsctl add-port br1 vhostuser${portno} -- set Interface vhostuser${portno} type=dpdkvhostuser
     done
 
     ok "add vhostuser ports"
