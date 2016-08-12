@@ -52,7 +52,7 @@ function check_version {
 
     for package in ${packages[@]}
     do
-        pkg_version=$(dpkg-query -f ${Version}\n -W '${package}' | perl -n -e 'print if /\S/' | uniq)
+        pkg_version=$(dpkg-query -f '${Version}\n' -W '${package}' | perl -n -e 'print if /\S/' | uniq)
 
         if [ X"$pkg_version" != X"$version" ]
         then
