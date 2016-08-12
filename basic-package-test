@@ -203,7 +203,7 @@ function ovs_vsctl {
 # test that OVS simple commands can be run without error, i.e. a returncode
 # other than 0.
 function test_ovs_commands {
-    if !  o-vsctl show &>/dev/null
+    if !  ovs_vsctl show &>/dev/null
     then
         error "can't run a ovs_vsctl show command"
     fi

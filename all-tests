@@ -1,0 +1,11 @@
+tests=(install 
+alternatives 
+ovs_startup 
+ovs_commands 
+ovs_add_bridge 
+ovs_add_ports 
+ovs_traffic 
+ovs_add_dpdk_bridge 
+ovs_add_dpdk_ports 
+ovs_add_vhostuser_ports 
+remove)
