@@ -10,11 +10,13 @@ dpdk_vswitchd=${alternatives[0]}
 extra_packages_should_be_installed=(
     libdpdk0
     dpdk)
-repo_remote='git@github.hpe.com:hpelinux/openvswitch.git'
+repo_remote='https://github.hpe.com/hpelinux/openvswitch.git'
 repo_tag='debian/2.5.1.2-1+hpelinux2'
 repo_dir=''
 uninstall=0
 deconfigure=0
+remote='origin'
+ssh_key=''
 
 function ok {
     echo  "OK $@"
@@ -67,11 +69,15 @@ function _test_install_files {
     if [ -z $repo_dir ]
     then
         repo_dir=$(mktemp -d)
+        git config --global http.proxy "$http_proxy"
         git -C $repo_dir clone $repo_remote || error "can't clone remote repo $repo_remote"    
         repo_dir=$repo_dir/openvswitch
     fi
 
     cd $repo_dir
+
+
+    git fetch  $remote || error "fetch failed in $repo_dir"
 
     git checkout $repo_tag &>/dev/null || error "can't checkout $repo_tag"
     cd debian
@@ -289,6 +295,17 @@ do
             ;;
         --deconfigure)
             deconfigure=1
+            shift
+            ;;
+        --debug)
+            set -x
+            ;;
+        --remote)
+            remote=$2
+            shift
+            ;; 
+        --ssh-key)
+            ssh_key=$2
             shift
             ;;
         --help|*)
