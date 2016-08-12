@@ -80,7 +80,7 @@ function _test_install_files {
     cd $repo_dir
 
 
-    git fetch  $remote || error "fetch failed in $repo_dir"
+    git fetch  -t $remote || error "fetch failed in $repo_dir"
 
     git checkout $repo_tag &>/dev/null || error "can't checkout $repo_tag"
     cd debian
