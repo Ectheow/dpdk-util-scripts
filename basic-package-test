@@ -45,16 +45,16 @@ function check_version {
 
     version=$(head -1 changelog | perl -n -e 'chomp; m/\((.*)\)/; print $1;')
     repo_tag_version=$(echo $repo_tag | perl -n -e 'm!.*/(.*)!; print $1;')
-    if [ $version != $repo_tag_version ]
+    if [ X"$version" != X"$repo_tag_version" ]
     then
-        error "bad tag, we're on version $version in repo, but the tag is: $repo_tag"
+        error "bad tag, we're on version '$version' in repo, but the tag is: '$repo_tag'"
     fi
 
     system_version=$(dpkg-query -f '${Version}\n' -W 'openvswitch*' | perl -n -e 'print if /\S/' | uniq)
     
     if [ X"$system_version" != X"$version" ]
     then
-        error "system version doesn't match the changelog or repo version: $system_version $version"
+        error "system version doesn't match the changelog or repo version: '$system_version'  is not '$version'"
     fi
 
     return 0
