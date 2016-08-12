@@ -285,7 +285,13 @@ $0 is a basic test for an OVS install, to make sure basic things like
 installation, adding ports, and eventually traffic flow work.    
 EOF
 }
-while [ $# != 0 ]
+
+if ! [ $# -gt 0 ]
+then
+    error "no tests file defined"
+fi
+
+while [ $# != 1 ]
 do
     case  $1 in
         --repo-dir)
@@ -323,18 +329,16 @@ do
     shift
 done
 
+tests_file=$1
+
 [ $(whoami) = 'root' ] || error "you're not root"
 
-tests=(
-    install
-    alternatives
-    ovs_startup
-    ovs_commands
-    ovs_add_bridge
-    ovs_add_dpdk_bridge
-    ovs_add_dpdk_ports
-    ovs_add_vhostuser_ports)
-
+if [ -f $tests_file ]
+then
+    source $tests_file
+else
+    error "no tests file: $tests_file doesn't exist"
+fi
 
 for test in ${tests[@]} 
 do
