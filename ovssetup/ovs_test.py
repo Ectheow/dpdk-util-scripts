@@ -2,6 +2,7 @@ import unittest
 import ovssetup.ovs
 import time
 import logging
+import os
 from . import ps
 
 class TestOVSStartStop(unittest.TestCase):
@@ -49,7 +50,7 @@ class TestOVSBridge(unittest.TestCase):
         self.assertIn(ovssetup.ovs.Bridge('br1'), brs)
 
     def test_ports(self):
-        pass
+        pass 
 
     def tearDown(self):
         ovssetup.ovs.stop()
@@ -73,5 +74,8 @@ class TestOVSAddRemove(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    if os.geteuid() != 0:
+        print("you must be root")
+        raise SystemExit(1)
     logging.basicConfig(filename='ovs_test.log', level=logging.DEBUG)
     unittest.main()
