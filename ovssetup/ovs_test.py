@@ -26,6 +26,7 @@ class TestOVSStartStop(unittest.TestCase):
 class TestOVSCall(unittest.TestCase):
     def setUp(self):
         ovssetup.ovs.start()
+        os.system("ovs-vsctl --may-exist add-br br1")
         time.sleep(3)
 
     def test_ovs_cmd(self):
@@ -35,6 +36,7 @@ class TestOVSCall(unittest.TestCase):
         self.assertTrue(len(flows.stdout.read()) > 0)
 
     def tearDown(self):
+        os.system("ovs-vsctl --if-exists del-br br1")
         ovssetup.ovs.stop()
 
 
@@ -50,28 +52,71 @@ class TestOVSBridge(unittest.TestCase):
         self.assertIn(ovssetup.ovs.Bridge('br1'), brs)
 
     def test_ports(self):
-        pass 
+        pass
 
     def tearDown(self):
+        ovssetup.ovs.run_command('vsctl', ['--if-exists', 'del-br', 'br1'])
         ovssetup.ovs.stop()
 
-@unittest.skip("skip OVS add/remove")
+#@unittest.skip("skip OVS add/remove")
 class TestOVSAddRemove(unittest.TestCase):
+    def setUp(self):
+        ovssetup.ovs.start()
+        time.sleep(3)
+        ovssetup.ovs.run_command('vsctl', ['--if-exists', 'del-br', 'br0'])
+
     def test_ovs_add_bridge(self):
-        self.assertEquals(ovs.list_bridges(),
+        self.assertEquals(ovssetup.ovs.list_bridges(),
             [])
-        bridge = ovs.Bridge('br0')
+        ovssetup.ovs.run_command('vsctl', ['add-br', 'br0'], 
+                                          ['set', 'Bridge', 'br0', 'datapath_type=netdev'])
+        bridge = ovssetup.ovs.Bridge('br0')
         bridge.add_port('dpdk0',
-            ['set', 'Interface', 'type=dpdk'])
+            ['set', 'Interface', 'dpdk0', 'type=dpdk'])
         self.assertEquals(
             bridge.ports(),
             ['dpdk0'])
-        bridges = ovs.list_bridges()
-        self.assertEquals(bridges, ['br0'])
+        bridges = ovssetup.ovs.list_bridges()
+        self.assertEquals(bridges, 
+                          [ovssetup.ovs.Bridge('br0')])
 
     def test_ovs_add_flows(self):
-        bridge = ovs.Bridge('br0')
+        bridge = ovssetup.ovs.Bridge('br0')
 
+    def tearDown(self):
+        ovssetup.ovs.stop()
+        ovssetup.ovs.run_command('vsctl', ['--if-exists', 'del-br', 'br0'])
+
+
+
+class TestOVSFlows(unittest.TestCase):
+    def setUp(self):
+        ovssetup.ovs.start()
+        ovssetup.ovs.run_command('vsctl', ['--if-exists', 'del-br', 'br0'],
+                                          ['add-br', 'br0'])
+
+    def test_simple_flows(self):
+        br = ovssetup.ovs.Bridge('br0')
+        for i in range(0, 2):
+            os.system("ip link add type veth")
+        br.add_port('veth0')
+        br.add_port('veth2')
+        flow_ports = br.get_flow_ports()
+        self.assertEqual(2, len(flow_ports))
+        names = []
+        for flow_port in flow_ports:
+            names.append(flow_port[1])
+            self.assertEqual(3, len(flow_port))
+
+        self.assertEqual(sorted(names), ['veth0', 'veth2'])
+
+
+
+    def tearDown(self):
+        os.system('ip link del veth0')
+        os.system('ip link del veth2')
+        ovssetup.ovs.run_command('vsctl', ['--if-exists', 'del-br', 'br0'])
+        ovssetup.ovs.stop()
 
 if __name__ == '__main__':
     if os.geteuid() != 0:

@@ -78,8 +78,7 @@ VM_IP="192.168.122.115"
 VM_PASS="iforgot"
 VM_USER="me"
 QEMU_CMD="qemu-system-x86_64"
-QEMU_SCRIPT_CMD="qemu_linux.pl"
-VM_START="perl %(scripts)s/qemu_linux.pl \
+VM_START="perl %(perl_vm_dir)s/qemu_linux.pl \
     --imgloc %(imgloc)s \
     --memory-gb %(memory)s \
     --veth-addr %(veth_addr)s \
@@ -168,11 +167,11 @@ def get_ps_list(fields, taskname=None):
 def taskset_vm(args):
     matches = []
     status("Taskset VM")
-    
+
 
     matches = [PSLine(i) for i in
             filter(lambda line: True if len(line) > 0 else False,
-                PS(process_name=QEMU_PROCESS_NAME, 
+                PS(process_name=QEMU_PROCESS_NAME,
                     fields=['comm', 'tid', 'psr', 'time']))]
 
     matches.sort()
@@ -451,8 +450,14 @@ def main(args):
         action='store_true',
         default=False,
         help='Don\'t stop or start VM')
+    parser.add_argument('--perl-vm-dir',
+        type=str,
+        default='')
 
     parsed_args = parser.parse_args(args)
+
+    os.environ['PERL5LIB'] = parsed_args.perl_vm_dir + "/lib"
+
     if parsed_args.dpdk !=  config['with_dpdk']:
         config['with_dpdk'] = parsed_args.dpdk
         config['internal_dpdk'] = False
@@ -488,5 +493,4 @@ def main(args):
     sys.exit(code)
 
 if __name__ == '__main__':
-    os.environ['PERL5LIB'] = "/home/me/scripts/lib"
     main(sys.argv[1:])
