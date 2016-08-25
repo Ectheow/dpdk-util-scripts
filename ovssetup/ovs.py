@@ -3,43 +3,44 @@ import ovs
 import os
 import logging
 import re
+from collections import OrderedDict as OD
 
-OVS_PREFIX_PATHS={
-        'packaged':'/usr',
-        'source':'/usr/local'}
+OVS_PREFIX_PATHS=OD((
+        ('packaged','/usr'),
+        ('source','/usr/local')))
 
-OVS_BINARIES={
-        "ovsdb-server":"sbin/",
-        "ovs-vswitchd":"sbin/",
-        "ovs-vsctl":"bin/",
-        "ovs-appctl":"bin/",
-        "ovs-ofctl":"bin/",
-        'ovs-ctl':'share/openvswitch/scripts/'}
+OVS_BINARIES=OD((
+        ("ovsdb-server","sbin/"),
+        ("ovs-vswitchd","sbin/"),
+        ("ovs-vsctl","bin/"),
+        ("ovs-appctl","bin/"),
+        ("ovs-ofctl","bin/"),
+        ('ovs-ctl','share/openvswitch/scripts/')
+))
 
 
-OVS_STOP_START_METHODS = {
-    "system-scripts":{
-        '/bin/systemctl': {
-            'stop':['stop', 'openvswitch-switch'],
-            'start':['start', 'openvswitch-switch']
-            },
-        '/etc/init.d/openvswitch-switch': {
-            'stop':['stop'],
-            'start':['start'],
-        },
-    },
-    "ovs-commands":{
-        'ovs-ctl':{
-            'stop':['stop'],
-            'start':['start'],
+OVS_STOP_START_METHODS = OD((
+    ("system-scripts",
+        OD((
+        ('/bin/systemctl', OD((
+            ('stop',['stop', 'openvswitch-switch']),
+            ('start',['start', 'openvswitch-switch']),
+            ))),
+        ('/etc/init.d/openvswitch-switch', OD((
+            ('stop',['stop']),
+            ('start',['start']),
+        ))),
+    ))),
+    # These are not too trustworthy, since ovs-ctl by itself doesn't source 
+    # the /etc config file(s) you may or may not want to be sourced.
+    ("ovs-commands",OD((
+        ('ovs-ctl',OD((
+            ('stop',['stop']),
+            ('start',['start'])
+        ))),
+    ))),
+))
 
-        },
-#        'ovs-appctl':{
-#            'stop':[[]],
-#            'start':[[]],
-#        },
-    }
-}
 class OVSCommandError(Exception):
     pass
 
@@ -153,7 +154,7 @@ def run_command(suffix, *arguments):
     ovs-vsctl add-port br0 dpdk0 -- set interface dpdk0 type=dpdk
 
     '''
-    argvlist = _argv_command_list(suffix, *arguments) 
+    argvlist = _argv_command_list(suffix, *arguments)
     pr = subprocess.Popen(argvlist,
                           stderr=subprocess.PIPE,
                           stdout=subprocess.PIPE,
@@ -194,20 +195,27 @@ class Bridge:
 
     def ports(self):
         return map(lambda s: s.strip(),
-                filter(lambda s: True if len(s) else False, 
+                filter(lambda s: True if len(s) else False,
                        run_command_get_out('vsctl', ['list-ports', self.name]).split('\n')))
 
     def add_port(self, name, *args):
         return run_command_get_out('vsctl', ['add-port', self.name, name], *args)
 
     def del_port(self, name):
-        return run_command_get_out('vsctl', ['del-port', self.name, name], *args)
+        return run_command_get_out('vsctl', ['del-port', self.name, name])
 
     def del_flows(self):
         return run_command_get_out('ofctl', ['del-flows', self.name])
 
     def get_flows(self):
-        pass
+        out = run_command_get_out('ofctl', ['dump-flows', self.name])
+        flow_lines = map(lambda l:
+                         map(lambda w:
+                             w.strip(), l.strip().split(',')),
+                             filter(lambda s: True if len(s) != 0 else False,
+                                    out.split('\n')[1:]))
+
+        return flow_lines
 
     def get_flow_ports(self):
         '''
@@ -221,24 +229,35 @@ class Bridge:
         '''
         output = run_command_get_out('ofctl', ['show', self.name])
         lines = output.split('\n')
-        name_pat = re.compile(r'^\s+(\d+)\(([\w\d\-\_]+)\):\s*addr:([\d\w\:]+)')
+        name_pat = re.compile(r'^\s+(\d+)\(([\w\d\-\_]+)\):\s*addr:((?:[a-f\d]{2}:){5}[a-f\d]{2})')
         flows = []
         for line in lines:
             m = re.match(name_pat, line)
             if m is not None:
                 flows.append((int(m.group(1)), m.group(2), m.group(3)))
         return flows
-        
 
-    def add_flow(self, string):
+
+    def add_flow(self, flow):
         '''
         add a new flow to the bridge. the flow can be a
         list or string.
 
         b.add_flow(['in_port=1', 'actions:output_port=2'])
         b.add_flow('in_port=1,actions:output_port=2')
+
+        Returns nothing
         '''
-        pass
+
+        flow_str = ''
+        if type(flow) == list:
+            flow_str = ','.join(flow)
+        else:
+            flow_str = flow
+
+        output = run_command_get_out('ofctl', ['add-flow', self.name, flow_str])
+
+
 
     def __cmp__(self, other):
         assert isinstance(other, Bridge)

@@ -1,9 +1,11 @@
 import unittest
 import ovssetup.ovs
+import subprocess
 import time
 import logging
 import os
-from . import ps
+import re
+import proctools.ps
 
 class TestOVSStartStop(unittest.TestCase):
     def test_ovs_exists(self):
@@ -12,10 +14,17 @@ class TestOVSStartStop(unittest.TestCase):
     def test_start_ovs(self):
         ovssetup.ovs.start()
         for lenshouldbe in (1, 0):
-            pslist = [ i for i in iter(ps.PS(process_name='ovs-vswitchd', threads=False))]
-            self.assertEqual(len(pslist), lenshouldbe)
+            pslist = [ i for i in iter(proctools.ps.PS(process_name='ovs-vswitchd', threads=False))]
+            # The length is sort of arbitrary, for vswitchd,
+            # there are potentially lots of userspace processes like the watchdog,
+            # but also a kernel thread.
+            if lenshouldbe >= 1:
+                self.assertTrue(len(pslist) >= lenshouldbe)
+            else:
+                self.assertTrue(len(pslist) <= lenshouldbe)
 
-            pslist = [ i for i in iter(ps.PS(process_name='ovsdb-server', threads=False))]
+
+            pslist = [ i for i in iter(proctools.ps.PS(process_name='ovsdb-server', threads=False))]
             self.assertEqual(len(pslist), lenshouldbe)
 
             if lenshouldbe != 0:
@@ -68,7 +77,7 @@ class TestOVSAddRemove(unittest.TestCase):
     def test_ovs_add_bridge(self):
         self.assertEquals(ovssetup.ovs.list_bridges(),
             [])
-        ovssetup.ovs.run_command('vsctl', ['add-br', 'br0'], 
+        ovssetup.ovs.run_command('vsctl', ['add-br', 'br0'],
                                           ['set', 'Bridge', 'br0', 'datapath_type=netdev'])
         bridge = ovssetup.ovs.Bridge('br0')
         bridge.add_port('dpdk0',
@@ -77,7 +86,7 @@ class TestOVSAddRemove(unittest.TestCase):
             bridge.ports(),
             ['dpdk0'])
         bridges = ovssetup.ovs.list_bridges()
-        self.assertEquals(bridges, 
+        self.assertEquals(bridges,
                           [ovssetup.ovs.Bridge('br0')])
 
     def test_ovs_add_flows(self):
@@ -103,13 +112,27 @@ class TestOVSFlows(unittest.TestCase):
         br.add_port('veth2')
         flow_ports = br.get_flow_ports()
         self.assertEqual(2, len(flow_ports))
+        time.sleep(1)
         names = []
         for flow_port in flow_ports:
             names.append(flow_port[1])
             self.assertEqual(3, len(flow_port))
+            self.assertEqual(type(flow_port[0]), int)
+            self.assertTrue(
+                    re.match(r'^(?:[a-f\d]{2}:){5}[a-f\d]{2}$', flow_port[2]) != None)
+
+        for i in (1, 0):
+            flows = br.get_flows()
+            self.assertEqual(len(flows), i)
+            br.del_flows()
 
         self.assertEqual(sorted(names), ['veth0', 'veth2'])
 
+        br.del_port('veth0')
+        br.del_port('veth2')
+
+        flow_ports = br.get_flow_ports()
+        self.assertEqual([], flow_ports)
 
 
     def tearDown(self):
@@ -122,5 +145,15 @@ if __name__ == '__main__':
     if os.geteuid() != 0:
         print("you must be root")
         raise SystemExit(1)
+
+    # simple dummy-check to make sure we aren't deleting bridges already on the system.
+    # Currently the test should only be run on a system w/o any bridges defined.
+    proc = subprocess.Popen('ovs-vsctl show', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if len(proc.stdout.read().split('\n')) > 3:
+        print('ovs-vsctl command output is not nothing.\n'
+              'This test will wipe out bridges and requires an empty OVS DB.\n'
+              'Please run this elsewhere or delete your bridges.')
+        raise SystemExit(1)
+
     logging.basicConfig(filename='ovs_test.log', level=logging.DEBUG)
     unittest.main()
