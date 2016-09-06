@@ -48,7 +48,10 @@ class PS:
             self.ps_cmd.append('-L')
 
         if process_name is not None:
-            self.ps_cmd.extend(['-C', process_name])
+            if isinstance(process_name, int):
+                self.ps_cmd.extend(['-p', str(process_name)])
+            else:
+                self.ps_cmd.extend(['-C', str(process_name)])
         else:
             self.ps_cmd.append('-e')
 

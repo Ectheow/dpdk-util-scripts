@@ -1,12 +1,14 @@
 import unittest
 import setproctitle
+import subprocess
 import multiprocessing
 import sys
 import os
 import time
 import random
-import signal 
+import signal
 import ps
+import re
 
 CLEVER_NAME="clever-name{0}"
 RANDOM_RANGE=[0, 100]
@@ -35,6 +37,12 @@ class TestPSList(unittest.TestCase):
         modified_mask = 1<<5
         ps_daemon_pid = ConfigurableDaemon(name).start()
         time.sleep(1)
+
+        default_mask = int(
+                re.split(r'\s+', subprocess.check_output(
+                    'taskset -p {}'.format(ps_daemon_pid),
+                    shell=True).strip())[-1],
+                base=16)
         for num_alive in (1, 0):
             pslist = ps.PS(process_name=name, fields=['comm', 'tid'])
             iterator = iter(pslist)
@@ -50,6 +58,15 @@ class TestPSList(unittest.TestCase):
                 time.sleep(1)
             else:
                 self.assertRaises(StopIteration, next, iterator)
+    def test_list_by_pid(self):
+        name = CLEVER_NAME.format(random.randint(*RANDOM_RANGE))
+        ps_daemon_pid = ConfigurableDaemon(name).start()
+        pslist = ps.PS(process_name=ps_daemon_pid, 
+                       fields=['comm', 'time', 'tid'])
+        li = list(iter(pslist))
+        self.assertTrue(len(li) == 1)
+        self.assertEqual(li[0].comm, name)
+
 
 
 
