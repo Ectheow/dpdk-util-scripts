@@ -2,6 +2,7 @@
 import sqlite3
 import sys
 import argparse
+import dokuwiki
 import getpass
 import re
 
@@ -14,18 +15,28 @@ Output:
     OR
     * Create a page according to other input parameters as well as filename, with the results
     OR
-    * insert results table and accompanying description into a div.
+    * insert results table and accompanying description into a 'section' on the wiki where a section is:
+      
+
+      Section ::= BARRIER WS IDENTIFIER TEXT WS BARRIER
+      BARRIER ::= "----\n"
+      IDENTIFIER ::= "[\w\d\-\s]+\n"
+      TEXT    ::=  .*\n
+                   | WS
+                   | TEXT
+      WS ::= "\n" | " " | "\t" 
+
 Usage:
     ./output-results-table.py [--insert-wiki|--create-wiki] [--divname] [--pagename] [--description]
 '''
 
-COLUMNS=['FrameSize', 'ThroughputRate', 'Throughput', 'TxFrameRate', 'Result', 'MinLatency', 'MaxLatency']
+COLUMNS=['FrameSize', 'ThroughputRate', 'Throughput', 'TxFrameRate', 'Result', 'MinLatency', 'AvgLatency', 'MaxLatency']
 SIMPLE_QUERY='SELECT  {} from Rfc2544ThroughputPerFrameSizeResult'.format(','.join(COLUMNS))
 
 SECTION_DELIMIT_REGEX = re.compile(r'\s*\-\-\-\-\s*$')
 
 
-def get_table_html_for_database(filename, description=None):
+def get_table_html_for_database(filename, description=None, columns=COLUMNS):
     output = ""
     conn = sqlite3.connect(filename)
     cursor = conn.cursor()
@@ -35,7 +46,7 @@ def get_table_html_for_database(filename, description=None):
 
     output += ("<table>\n")
     output += ("<tr>\n")
-    for i in COLUMNS:
+    for i in columns:
         output += "<td>{}</td>\n".format(i)
     output += ("</tr>\n")
     for row in cursor.execute(SIMPLE_QUERY):
@@ -64,7 +75,8 @@ def do_insert_wiki(filename,
                    results_section,
                    username,
                    password,
-                   description=None):
+                   description=None,
+                   columns=COLUMNS):
     wiki = dokuwiki.DokuWiki(url, verify=False)
     login_to_wiki(wiki, username, password)
     current_lines = wiki.get_page(pagename).split('\n')
@@ -80,7 +92,7 @@ def do_insert_wiki(filename,
     while line != None:
         if re.match(SECTION_DELIMIT_REGEX, line) and not done:
             if entered and not done:
-                output += "<html>" + get_table_html_for_database(filename, description) + "</html>\n"
+                output += "<html>" + get_table_html_for_database(filename, description, columns) + "</html>\n"
                 done = True
                 entered = False
                 output += line + '\n'
@@ -101,7 +113,7 @@ def do_insert_wiki(filename,
             output += line + '\n'
 
         line = next(lines_iter, None)
-
+        
     wiki.put_page(pagename, output)
 
 
@@ -110,10 +122,11 @@ def do_create_wiki(filename,
                    pagename,
                    username,
                    password,
-                   description=None):
+                   description=None,
+                   columns=COLUMNS):
     wiki = dokuwiki.DokuWiki(url, verify=False)
     login_to_wiki(wiki, username, password)
-    wiki.put_page(pagename, "<html>\n" + get_table_html_for_database(filename, description) + "</html>\n")
+    wiki.put_page(pagename, "<html>\n" + get_table_html_for_database(filename, description, columns) + "</html>\n")
 
 def do_print_simple_table(filename, description=None):
     print(get_table_html_for_database(filename, description))
@@ -157,34 +170,35 @@ def main(args):
                         default=None,
                         required=True,
                         help='database file to print as a table')
+    parser.add_argument('--columns',
+                        default=','.join(COLUMNS),
+                        help='csv separated list of columns to select from the database')
+
+
 
     pargs = parser.parse_args(args)
     if pargs.action == 'simple-print':
-        do_print_simple_table(pargs.database, pargs.description)
-    else:
-        try:
-            import dokuwiki
-        except:
-            print("No dokuwiki module present on the system.")
-            raise SystemExit(1)
-        if pargs.action == 'create':
-            do_create_wiki(pargs.database,
+        do_print_simple_table(pargs.database, pargs.description, pargs.columns.split(','))
+    elif pargs.action == 'create':
+        do_create_wiki(pargs.database,
                         pargs.wiki_url,
                         pargs.pagename,
                         pargs.username,
                         pargs.password,
-                        pargs.description)
-        elif pargs.action == 'insert':
-            do_insert_wiki(
+                        pargs.description,
+                        pargs.columns.split(','))
+    elif pargs.action == 'insert':
+        do_insert_wiki(
                 pargs.database,
                 pargs.wiki_url,
                 pargs.pagename,
                 pargs.secname,
                 pargs.username,
                 pargs.password,
-                pargs.description)
-        else:
-            sys.exit(1)
+                pargs.description,
+                pargs.columns.split(','))
+    else:
+        sys.exit(1)
 
 
 
