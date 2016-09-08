@@ -2,7 +2,6 @@
 import sqlite3
 import sys
 import argparse
-import dokuwiki
 import getpass
 import re
 
@@ -16,7 +15,7 @@ Output:
     * Create a page according to other input parameters as well as filename, with the results
     OR
     * insert results table and accompanying description into a 'section' on the wiki where a section is:
-      
+
 
       Section ::= BARRIER WS IDENTIFIER TEXT WS BARRIER
       BARRIER ::= "----\n"
@@ -24,14 +23,14 @@ Output:
       TEXT    ::=  .*\n
                    | WS
                    | TEXT
-      WS ::= "\n" | " " | "\t" 
+      WS ::= "\n" | " " | "\t"
 
 Usage:
     ./output-results-table.py [--insert-wiki|--create-wiki] [--divname] [--pagename] [--description]
 '''
 
 COLUMNS=['FrameSize', 'ThroughputRate', 'Throughput', 'TxFrameRate', 'Result', 'MinLatency', 'AvgLatency', 'MaxLatency']
-SIMPLE_QUERY='SELECT  {} from Rfc2544ThroughputPerFrameSizeResult'.format(','.join(COLUMNS))
+SIMPLE_QUERY='SELECT  {} from Rfc2544ThroughputPerFrameSizeResult'
 
 SECTION_DELIMIT_REGEX = re.compile(r'\s*\-\-\-\-\s*$')
 
@@ -49,7 +48,8 @@ def get_table_html_for_database(filename, description=None, columns=COLUMNS):
     for i in columns:
         output += "<td>{}</td>\n".format(i)
     output += ("</tr>\n")
-    for row in cursor.execute(SIMPLE_QUERY):
+
+    for row in cursor.execute(SIMPLE_QUERY.format(','.join(columns))):
         output += ("<tr>\n")
         for col in row:
             output += ("<td>{}</td>\n".format(col))
@@ -113,7 +113,7 @@ def do_insert_wiki(filename,
             output += line + '\n'
 
         line = next(lines_iter, None)
-        
+
     wiki.put_page(pagename, output)
 
 
@@ -128,8 +128,8 @@ def do_create_wiki(filename,
     login_to_wiki(wiki, username, password)
     wiki.put_page(pagename, "<html>\n" + get_table_html_for_database(filename, description, columns) + "</html>\n")
 
-def do_print_simple_table(filename, description=None):
-    print(get_table_html_for_database(filename, description))
+def do_print_simple_table(filename, description=None, columns=COLUMNS):
+    print(get_table_html_for_database(filename, description, columns))
 
 def main(args):
     parser = argparse.ArgumentParser()
@@ -178,17 +178,26 @@ def main(args):
 
     pargs = parser.parse_args(args)
     if pargs.action == 'simple-print':
-        do_print_simple_table(pargs.database, pargs.description, pargs.columns.split(','))
-    elif pargs.action == 'create':
-        do_create_wiki(pargs.database,
+        do_print_simple_table(pargs.database,
+                              pargs.description,
+                              pargs.columns.split(','))
+    else:
+        try:
+            import dokuwiki
+        except Exception as e:
+            sys.stderr.write("I need the dokuwiki package to do wiki edits/creates\n")
+            raise SystemExit(1)
+
+        if pargs.action == 'create':
+            do_create_wiki(pargs.database,
                         pargs.wiki_url,
                         pargs.pagename,
                         pargs.username,
                         pargs.password,
                         pargs.description,
                         pargs.columns.split(','))
-    elif pargs.action == 'insert':
-        do_insert_wiki(
+        elif pargs.action == 'insert':
+            do_insert_wiki(
                 pargs.database,
                 pargs.wiki_url,
                 pargs.pagename,
@@ -197,8 +206,9 @@ def main(args):
                 pargs.password,
                 pargs.description,
                 pargs.columns.split(','))
-    else:
-        sys.exit(1)
+        else:
+            sys.stderr.write("Unrecognized action: {}".format(pargs.action))
+            raise SystemExit(1)
 
 
 
